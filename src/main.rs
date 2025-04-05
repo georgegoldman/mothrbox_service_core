@@ -35,36 +35,57 @@ mod models;
 
 use crypto::ecc::ECCrypto;
 use p256::{ecdh::EphemeralSecret, PublicKey};
+use crypto::ecc_file;
 
-fn main() {
-    println!("ECC Encryption Demo");
+use crypto::ecc_file::{generate_key_pair, encrypt_file, decrypt_file};
+use anyhow::Result;
 
-    // Generate recipient key pair
-    let recipient_secret = EphemeralSecret::random(&mut rand::rngs::OsRng);
-    let recipient_public = PublicKey::from(&recipient_secret);
+// fn main() {
+//     println!("ECC Encryption Demo");
 
-    // Message to encrypt
-    let message = b"Hello, encrypted world!";
+//     // Generate recipient key pair
+//     let recipient_secret = EphemeralSecret::random(&mut rand::rngs::OsRng);
+//     let recipient_public = PublicKey::from(&recipient_secret);
 
-    // Encrypt
-    match ECCrypto::encrypt(message, &recipient_public) {
-        Ok(payload) => {
-            println!("Encrypted message: {:?}", payload.ciphertext);
-            println!("Ephemeral public key: {:?}", payload.ephemeral_public_key);
+//     // Message to encrypt
+//     let message = b"Hello, encrypted world!";
 
-            // Decrypt
-            match ECCrypto::decrypt(&recipient_secret, &payload.ephemeral_public_key, &payload.ciphertext) {
-                Ok(decrypted) => {
-                    println!("Decrypted message: {:?}", String::from_utf8(decrypted).unwrap());
-                }
-                Err(e) => {
-                    eprintln!("Decryption failed: {}", e);
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Encryption failed: {}", e);
-        }
-    }
+//     // Encrypt
+//     match ECCrypto::encrypt(message, &recipient_public) {
+//         Ok(payload) => {
+//             println!("Encrypted message: {:?}", payload.ciphertext);
+//             println!("Ephemeral public key: {:?}", payload.ephemeral_public_key);
+
+//             // Decrypt
+//             match ECCrypto::decrypt(&recipient_secret, &payload.ephemeral_public_key, &payload.ciphertext) {
+//                 Ok(decrypted) => {
+//                     println!("Decrypted message: {:?}", String::from_utf8(decrypted).unwrap());
+//                 }
+//                 Err(e) => {
+//                     eprintln!("Decryption failed: {}", e);
+//                 }
+//             }
+//         }
+//         Err(e) => {
+//             eprintln!("Encryption failed: {}", e);
+//         }
+//     }
+// }
+
+fn main() -> Result<()> {
+    let (sender_secret, sender_public) = generate_key_pair()?;
+    let (recipient_secret, recipient_public) = generate_key_pair()?;
+
+    let input_file = "/home/goldman/mothrbox/DSC08666.jpg";
+    let encrypted_file= "encrypted.enc";
+    let decrypted_file = "/home/goldman/mothrbox/decrypted.jpg";
+
+    encrypt_file(input_file, encrypted_file, &recipient_public)?;
+    println!("File encrypted successfully");
+
+    decrypt_file(encrypted_file, decrypted_file, &recipient_secret)?;
+    println!("File decrypted successfully");
+
+    Ok(())
 }
 
