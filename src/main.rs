@@ -1,67 +1,111 @@
-use aes_gcm::{
-    aead::{rand_core::RngCore, Aead, KeyInit, OsRng}, Aes256Gcm, Nonce
-};
 use p256::{
-    ecdh::EphemeralSecret, EncodedPoint, PublicKey, SecretKey
+    ecdh::{EphemeralSecret, SharedSecret}, PublicKey
 };
 
-use rayon::prelude::*;
-use sha2::{Sha256, Digest};
-use p256::ecdsa::VerifyingKey;
+use aes_gcm::{
+    aead::{Aead, KeyInit, generic_array::GenericArray},
+    Aes256Gcm, Nonce
+};
+use rand:: {RngCore, rngs::OsRng};
+use hex;
+use sha2::digest::generic_array::sequence::GenericSequence;
 
-fn generate_keypair() -> (SecretKey, PublicKey) {
-    let secret = SecretKey::random(&mut OsRng);
-    let public = secret.public_key();
-    (secret, public)
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let message = "This is a secret message to encrypt with ecc";
+    // Alice generates an ephemeral secret key and public key
+    let (a_secret, a_pub) = generate_ephemeria_key_pair();
+    
+    // Bob generates an ephemeral secret key and public key
+    let (b_secret, b_pub) = generate_ephemeria_key_pair();
+    
+    println!("Alice public key: {}", hex::encode(a_pub.to_sec1_bytes()));
+    println!("Bob public key: {}", hex::encode(b_pub.to_sec1_bytes()));
+
+    let (cipher_text, ephemeral_public) = ecc_encrypt(message.as_bytes(), &b_pub)?;
+
+    println!("\nencrypted message {}", hex::encode(&cipher_text));
+
+    // bob decrypt the message
+
+    let decrypted = ecc_decrypt(&b_secret, &ephemeral_public, &cipher_text)?;
+
+    println!("\nDecrypt message: {}", String::from_utf8(decrypted)?);
+    
+    // (e.g., with AES-GCM as shown in previous examples)
+    
+    Ok(())
 }
 
-fn derive_shared_secret(ephemeral_secret: EphemeralSecret, peer_public: &PublicKey) -> [u8; 32] {
-    let shared = ephemeral_secret.diffie_hellman(&peer_public);
-    let mut hasher = Sha256::new();
-    hasher.update(shared.raw_secret_bytes());
-    hasher.finalize().into()
+fn generate_ephemeria_key_pair() -> (EphemeralSecret, PublicKey) {
+    let secret_key = EphemeralSecret::random(&mut OsRng);
+    let public_key= PublicKey::from(&secret_key);
+    (secret_key, public_key)
 }
 
-fn encrypt_message(
-    plaintext: &[u8],
-    receiver_public_key: &PublicKey,
-) -> (Vec<u8>, [u8; 12], EncodedPoint) {
-    let ephemeral_secret = EphemeralSecret::random(&mut OsRng);
-    let ephemeral_public = EncodedPoint::from(ephemeral_secret.public_key());
+fn generate_shared_secret(secret_key: EphemeralSecret, receiver_pub: PublicKey) -> SharedSecret {
+    secret_key.diffie_hellman(&receiver_pub)
+}
 
-    let shared_Secret = derive_shared_secret(ephemeral_secret, receiver_public_key);
+fn ecc_encrypt(
+    plain_text: &[u8],
+    recipient_public_key: &PublicKey,
+) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error>> {
+    let mut rng = OsRng;
+    let (ephemeral_secret, ephemeral_public) = generate_ephemeria_key_pair();
 
-    let aes_key = aes_gcm::Key::<Aes256Gcm>::from_slice(&shared_Secret);
+    // Perform ECDH key exchange
+    let share_secret = ephemeral_secret.diffie_hellman(recipient_public_key);
+
+    // Derive AES key from shared secret (first 32 bytes)
+    let shared_secret_bytes = share_secret.raw_secret_bytes();
+    let aes_key = GenericArray::from_slice(&shared_secret_bytes[..32]);
+
+    // initial AES-GCM cipher
     let cipher = Aes256Gcm::new(aes_key);
 
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&mut nonce_bytes);
+    // Generate random nonce (96 bits)
+    let mut nonce = [0u8; 12];
+    rng.fill_bytes(&mut nonce);
+    let nonce = Nonce::from_slice(&nonce);
 
-    let ciphertext = cipher
-        .encrypt(nonce, plaintext)
-        .expect("Encryption failed");
+    // Encrypt the message
+    let ciphertext = cipher.encrypt(&nonce, plain_text)?;
 
-    (ciphertext, nonce_bytes, ephemeral_public)
+        // Combine nonce and ciphertext
+    let mut full_ciphertext = nonce.to_vec();
+    full_ciphertext.extend(ciphertext);
+
+    // Return (ciphertext + nonce, ephemeral public key)
+    Ok((full_ciphertext, ephemeral_public.to_sec1_bytes().to_vec()))
+
 }
 
-
-fn decrypt_message(
+fn ecc_decrypt(
+    recipient_secret: &EphemeralSecret,
+    sender_public_key: &[u8],
     ciphertext: &[u8],
-    nonce: &[u8; 12],
-    ephemeral_public: &EncodedPoint,
-    receiver_secret_key: EphemeralSecret,
-) -> Vec<u8> {
-    let peer_public = PublicKey::from_sec1_bytes(ephemeral_public   .as_bytes())
-    .expect("invalid ephemeral public key");
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let sender_public = PublicKey::from_sec1_bytes(sender_public_key)?;
 
-    let shared_secret = derive_shared_secret(EphemeralSecret::from(receiver_secret_key), &peer_public);
+    // Perform ECDH key exchange
+    let shared_secrete = recipient_secret.diffie_hellman(&sender_public);
 
-    let aes_key = aes_gcm::Key::<Aes256Gcm>::from_slice(&shared_secret);
+    // Derive AES key
+    let shared_secret_bytes = shared_secrete.raw_secret_bytes();
+    let aes_key = GenericArray::from_slice(&shared_secret_bytes[..32]);
+
+    // Initialize AES-GCM cipher
     let cipher = Aes256Gcm::new(aes_key);
-    cipher.decrypt(Nonce::from_slice(nonce), ciphertext).expect("Decryption failed")
-}
 
-fn main() {
-    println!("{:?}", generate_keypair())
+    //split nonce (first 12 bytes) and actual ciphertext
+    if ciphertext.len() < 12 {
+        return Err("Ciphertext too short".into());
+    }
+    let (nonce_bytes, encrypted_data) = ciphertext.split_at(12);
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    // Decrypt the message
+    let plain_text = cipher.decrypt(nonce, encrypted_data)?;
+
+    Ok(plain_text)
 }
