@@ -1,6 +1,7 @@
 // use p256::ecdh::EphemeralSecret;
 
-
+#[macro_use]
+extern crate rocket;
 
 // fn main() -> Result<(), Box<dyn std::error::Error>> {
 //     let message = "This is a secret message to encrypt with ecc";
@@ -31,7 +32,6 @@
 // src/main.rs
 
 mod crypto;
-mod models;
 
 use crypto::ecc::ECCrypto;
 use p256::{ecdh::EphemeralSecret, PublicKey};
@@ -39,6 +39,13 @@ use crypto::ecc_file;
 
 use crypto::ecc_file::{generate_key_pair, encrypt_file, decrypt_file};
 use anyhow::Result;
+
+use models::user;
+use rocket::{custom, route, routes};
+use rocket_cors::{AllowedOrigins, CorsOptions};
+mod db;
+mod routes;
+mod models;
 
 // fn main() {
 //     println!("ECC Encryption Demo");
@@ -72,20 +79,63 @@ use anyhow::Result;
 //     }
 // }
 
-fn main() -> Result<()> {
-    let (sender_secret, sender_public) = generate_key_pair()?;
-    let (recipient_secret, recipient_public) = generate_key_pair()?;
+// fn main() -> Result<()> {
+//     let (sender_secret, sender_public) = generate_key_pair()?;
+//     let (recipient_secret, recipient_public) = generate_key_pair()?;
 
-    let input_file = "/home/goldman/mothrbox/DSC08666.jpg";
-    let encrypted_file= "encrypted.enc";
-    let decrypted_file = "/home/goldman/mothrbox/decrypted.jpg";
+//     let input_file = "/home/goldman/mothrbox/DSC08666.jpg";
+//     let encrypted_file= "encrypted.enc";
+//     let decrypted_file = "/home/goldman/mothrbox/decrypted.jpg";
 
-    encrypt_file(input_file, encrypted_file, &recipient_public)?;
-    println!("File encrypted successfully");
+//     encrypt_file(input_file, encrypted_file, &recipient_public)?;
+//     println!("File encrypted successfully");
 
-    decrypt_file(encrypted_file, decrypted_file, &recipient_secret)?;
-    println!("File decrypted successfully");
+//     decrypt_file(encrypted_file, decrypted_file, &recipient_secret)?;
+//     println!("File decrypted successfully");
 
-    Ok(())
+//     Ok(())
+// }
+
+
+
+#[launch]
+async fn rocket() -> _ {
+    use std::env;
+    let user_db = db::connect::<models::user::User>().await;
+    let blacklisted_tokens_db = db::connect::<models::blacklist::BlackListedToken>().await;
+
+    let port = env::var("PORT")
+    .unwrap_or_else(|_| "8000".to_string())
+    .parse::<u16>()
+    .expect("Invalid port number");
+
+    let cors = CorsOptions::default()
+    .allowed_origins(AllowedOrigins::all())
+    .to_cors()
+    .unwrap();
+
+    rocket::custom(
+        rocket::Config {
+            address: "0.0.0.0".parse().unwrap(),
+            port,
+            ..rocket::Config::default()
+        }
+    )
+    .attach(cors)
+    .manage(user_db)
+    .manage(blacklisted_tokens_db)
+    .mount(
+        "/api/v1",
+        routes![
+            routes::sign_up,
+            routes::read_users,
+            routes::drop_user,
+            routes::update_user,
+            routes::read_user,
+            routes::login,
+            routes::profile,
+            routes::delete_all_users,
+
+        ]
+    )
 }
-
