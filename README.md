@@ -1,51 +1,74 @@
-# 🔐 ECC Hybrid Encryption in Rust (with Multithreading)
+# 🧠 Motherbox — The Smart Gateway to Walrus
 
-This project demonstrates a hybrid encryption scheme using Elliptic Curve Cryptography (ECC) in Rust, now with multithreaded support for parallel processing of encryption and decryption tasks.
+**Motherbox** is the fastest and most secure way to integrate with [Walrus](https://docs.wal.app), a decentralized storage and availability protocol.
 
-## 📌 Features
+> Store encrypted or plain data — your choice.  
+> Either way, Motherbox ensures seamless and reliable access to Walrus with robust tooling.
 
-- 🔒 Elliptic Curve Cryptography using the p256 crate (NIST P-256 / secp256r1)
+---
 
-- 🔁 Hybrid encryption combining:
-    - Ephemeral ECDH key exchange
-    - AES-GCM authenticated symmetric encryption
-- 🧵 Multithreaded execution for high-performance, parallel encryption/decryption
+## 🔑 What Can Motherbox Do?
 
-- 🔑 Ephemeral keys ensure forward secrecy
-- ✅ Authenticated encryption with AES-GCM
-- 📦 Pure Rust implementation using modern cryptographic libraries
+- ✅ **Encrypt and store** data on Walrus (default mode)  
+- ✅ **Store plain data** on Walrus without encryption  
+- ✅ **Decrypt data** securely on the fly using ECC (NIST P-256)  
+- ✅ **Expose fast APIs** for developers  
+- ✅ **Ensure end-to-end confidentiality** for sensitive content  
+- ✅ **Serve as your go-to encryption layer** for decentralized or Web2+3 apps
 
-## 🧠 Encryption Workflow
+---
 
-1. The receiver has a long-term ECC key pair.
-2. The sender generates a one-time ephemeral key pair.
-3. They derive a shared secret using ECDH (sender’s ephemeral private key + receiver’s public key).
-4. The shared secret is hashed using SHA-256 to produce a symmetric AES key.
-5. The message is encrypted using AES-GCM for confidentiality and integrity.
-6. The sender sends the ciphertext and their ephemeral public key.
-7. The receiver derives the same shared secret and decrypts the message.
+## ⚙️ Modes of Operation
 
-# 🚀 Multithreaded Mode
-- Designed for parallel message encryption/decryption.
-- Uses Rust's powerful threading model (std::thread or rayon) to distribute workload.
-- Ideal for systems handling multiple secure sessions/messages concurrently.
+| Mode               | Description |
+|--------------------|-------------|
+| 🔐 Encrypted Mode   | Encrypt data client-side with ECC, store on Walrus, decrypt only with recipient’s private key. |
+| 📂 Plain Mode       | Store unencrypted blobs on Walrus via Motherbox APIs — ideal for public assets or open metadata. |
 
-## 🧪 Dependencies
-```toml
-[dependencies]
-p256 = "0.13.0"
-aes-gcm = "0.10.1"
-rand_core = "0.6.4"
-rand = "0.8.5"
-sha2 = "0.10.6"
-hex = "0.4.3"
-rayon = "1.8.0" # optional, for easier parallelism
+You choose based on your use case.
 
-```
-## 📂 Use Cases
+---
 
-- Secure messaging platforms
-- Encrypted file transfer services
-- End-to-end encrypted applications
-- Systems requiring high-throughput encryption via multithreading
+## 🛡 Why Use Motherbox?
+
+| Feature                    | Walrus Only | Motherbox |
+|----------------------------|-------------|-----------|
+| Public Blob Storage        | ✅           | ❌         |
+| Private Blob Storage       | ❌           | ✅         |
+| Encryption Support         | ❌           | ✅         |
+| Fast ECC Crypto            | ❌           | ✅         |
+| API Key Auth               | ❌           | ✅         |
+| Blob Decryption Support    | ❌           | ✅         |
+
+---
+
+## 🧪 Example Use Cases
+
+- 💾 Decentralized App Storage (with or without encryption)
+- 🧾 Confidential Invoice or Receipt Storage
+- 🔐 Token-Gated Content Access
+- 🧠 Storing Off-chain AI Models or Vectors
+- 🧬 Private Medical or Identity Docs
+
+---
+
+## 🚀 Getting Started
+
+To use Motherbox:
+
+1. **Sign up** on the Motherbox platform  
+2. **Generate an API key**  
+3. **Start storing data (encrypted or plain)** on Walrus via our SDK or API
+
+> 🔐 Encryption by default. Control when and how data is decrypted.
+
+---
+
+## 💬 TL;DR
+
+> Whether you want to store public files, confidential documents, or encrypted payloads — **Motherbox is your bridge to decentralized storage with Walrus**, optimized for **speed, security, and simplicity**.
+
+---
+
+Made with ❤️ to make decentralized storage **actually** usable.
 
