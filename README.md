@@ -1,13 +1,13 @@
-# 🧠 Motherbox — The Smart Gateway to Walrus
+# 🧠 Mothrbox — The Smart Gateway to Walrus
 
-**Motherbox** is the fastest and most secure way to integrate with [Walrus](https://docs.wal.app), a decentralized storage and availability protocol.
+**Mothrbox** is the fastest and most secure way to integrate with [Walrus](https://docs.wal.app), a decentralized storage and availability protocol.
 
 > Store encrypted or plain data — your choice.  
-> Either way, Motherbox ensures seamless and reliable access to Walrus with robust tooling.
+> Either way, Mothrbox ensures seamless and reliable access to Walrus with robust tooling.
 
 ---
 
-## 🔑 What Can Motherbox Do?
+## 🔑 What Can Mothrbox Do?
 
 - ✅ **Encrypt and store** data on Walrus (default mode)  
 - ✅ **Store plain data** on Walrus without encryption  
@@ -23,15 +23,15 @@
 | Mode               | Description |
 |--------------------|-------------|
 | 🔐 Encrypted Mode   | Encrypt data client-side with ECC, store on Walrus, decrypt only with recipient’s private key. |
-| 📂 Plain Mode       | Store unencrypted blobs on Walrus via Motherbox APIs — ideal for public assets or open metadata. |
+| 📂 Plain Mode       | Store unencrypted blobs on Walrus via Mothrbox APIs — ideal for public assets or open metadata. |
 
 You choose based on your use case.
 
 ---
 
-## 🛡 Why Use Motherbox?
+## 🛡 Why Use Mothrbox?
 
-| Feature                    | Walrus Only | Motherbox |
+| Feature                    | Walrus Only | Mothrbox |
 |----------------------------|-------------|-----------|
 | Public Blob Storage        | ✅           | ❌         |
 | Private Blob Storage       | ❌           | ✅         |
@@ -54,9 +54,9 @@ You choose based on your use case.
 
 ## 🚀 Getting Started
 
-To use Motherbox:
+To use Mothrbox:
 
-1. **Sign up** on the Motherbox platform  
+1. **Sign up** on the Mothrbox platform  
 2. **Generate an API key**  
 3. **Start storing data (encrypted or plain)** on Walrus via our SDK or API
 
@@ -66,7 +66,7 @@ To use Motherbox:
 
 ## 💬 TL;DR
 
-> Whether you want to store public files, confidential documents, or encrypted payloads — **Motherbox is your bridge to decentralized storage with Walrus**, optimized for **speed, security, and simplicity**.
+> Whether you want to store public files, confidential documents, or encrypted payloads — **Mothrbox is your bridge to decentralized storage with Walrus**, optimized for **speed, security, and simplicity**.
 
 ---
 
