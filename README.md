@@ -1,74 +1,72 @@
-# 🧠 Mothrbox — The Smart Gateway to Walrus
+# 🧠 Mothrbox
 
-**Mothrbox** is the fastest and most secure way to integrate with [Walrus](https://docs.wal.app), a decentralized storage and availability protocol.
+**Mothrbox** is a privacy-first data storage layer built for modern decentralized and hybrid applications.
 
-> Store encrypted or plain data — your choice.  
-> Either way, Mothrbox ensures seamless and reliable access to Walrus with robust tooling.
+> Encrypt and store anything — models, documents, blobs, metadata — and retrieve them securely, with blazing-fast APIs and powerful ECC encryption.  
+> Mothrbox handles the heavy lifting of storage and encryption so you can focus on building.
 
 ---
 
 ## 🔑 What Can Mothrbox Do?
 
-- ✅ **Encrypt and store** data on Walrus (default mode)  
-- ✅ **Store plain data** on Walrus without encryption  
-- ✅ **Decrypt data** securely on the fly using ECC (NIST P-256)  
-- ✅ **Expose fast APIs** for developers  
-- ✅ **Ensure end-to-end confidentiality** for sensitive content  
-- ✅ **Serve as your go-to encryption layer** for decentralized or Web2+3 apps
+- ✅ **Client-side encryption** with modern ECC (NIST P-256)  
+- ✅ **Secure, API-driven data storage** (encrypted or plain)  
+- ✅ **Confidentiality-first architecture**  
+- ✅ **Blazing-fast decryption APIs** for real-time apps  
+- ✅ **Simple API key-based auth**  
+- ✅ **Built for developers and edge infrastructure**  
 
 ---
 
-## ⚙️ Modes of Operation
+## ⚙️ Storage Modes
 
 | Mode               | Description |
 |--------------------|-------------|
-| 🔐 Encrypted Mode   | Encrypt data client-side with ECC, store on Walrus, decrypt only with recipient’s private key. |
-| 📂 Plain Mode       | Store unencrypted blobs on Walrus via Mothrbox APIs — ideal for public assets or open metadata. |
+| 🔐 Encrypted Mode   | Encrypt and store data; decrypt only with the intended private key — perfect for sensitive or gated content. |
+| 📂 Plain Mode       | Store unencrypted data for public access or fast retrieval — ideal for open data, media, or metadata. |
 
-You choose based on your use case.
+You choose. We handle the hard parts.
 
 ---
 
-## 🛡 Why Use Mothrbox?
+## 🛡 Why Mothrbox?
 
-| Feature                    | Walrus Only | Mothrbox |
-|----------------------------|-------------|-----------|
-| Public Blob Storage        | ✅           | ❌         |
-| Private Blob Storage       | ❌           | ✅         |
-| Encryption Support         | ❌           | ✅         |
-| Fast ECC Crypto            | ❌           | ✅         |
-| API Key Auth               | ❌           | ✅         |
-| Blob Decryption Support    | ❌           | ✅         |
+| Capability                  | Traditional Storage | Mothrbox |
+|----------------------------|---------------------|----------|
+| Public File Storage        | ✅                  | ✅       |
+| Private File Encryption    | ❌                  | ✅       |
+| ECC-Based Cryptography     | ❌                  | ✅       |
+| API Key Auth               | ❌                  | ✅       |
+| Ready-to-use Developer APIs| ❌                  | ✅       |
+| End-to-End Confidentiality | ❌                  | ✅       |
 
 ---
 
 ## 🧪 Example Use Cases
 
-- 💾 Decentralized App Storage (with or without encryption)
-- 🧾 Confidential Invoice or Receipt Storage
-- 🔐 Token-Gated Content Access
-- 🧠 Storing Off-chain AI Models or Vectors
-- 🧬 Private Medical or Identity Docs
+- 💾 End-to-end secure storage for Web3 & Web2+3 apps  
+- 🧠 Off-chain vector embeddings or AI model storage  
+- 🧾 Encrypted billing records or receipts  
+- 🔐 Token-gated or role-gated content systems  
+- 🧬 Privacy-preserving medical or identity documents  
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Get Started in 3 Steps
 
-To use Mothrbox:
-
-1. **Sign up** on the Mothrbox platform  
+1. **Create a Mothrbox account**  
 2. **Generate an API key**  
-3. **Start storing data (encrypted or plain)** on Walrus via our SDK or API
+3. **Start uploading encrypted or plain files via SDK or API**
 
-> 🔐 Encryption by default. Control when and how data is decrypted.
+> ⚡ No need to manage keys or encryption — Mothrbox handles it for you securely.
 
 ---
 
 ## 💬 TL;DR
 
-> Whether you want to store public files, confidential documents, or encrypted payloads — **Mothrbox is your bridge to decentralized storage with Walrus**, optimized for **speed, security, and simplicity**.
+> **Mothrbox is your secure edge for storing, encrypting, and accessing data at scale.**  
+> Built with privacy, performance, and developer experience in mind.
 
 ---
 
-Made with ❤️ to make decentralized storage **actually** usable.
-
+Made with ❤️ to simplify secure storage for the future of the web.
