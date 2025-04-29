@@ -11,19 +11,31 @@ sha2 = "0.10"
 hex = "0.4"
 rayon = "1.10.0"
 anyhow = "1.0"
-rocket = { version = "0.5.1", features = ["json"] }
-serde = { version = "1.0.219", features = ["derive"] }
-mongodb = "3.2.3"
-rocket_db_pools = { version = "0.2.0", features = ["mongodb"] }
+#serde = { version = "1.0.219", features = ["derive"] }
 futures = "0.3.31"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-serde_json = "1.0.140"
 dotenv = "0.15.0"
 actix = "0.13.5"
-jsonwebtoken = "9.3.1"
 chrono = {version = "0.4.40", features = ["serde"]}
 hmac = "0.12.1"
-uuid = "1.16.0"
 lazy_static = "1.5.0"
 bcrypt = "0.17.0"
-rocket_cors = "0.6.0"
+actix-web = "4"
+base64 = "0.22.1"
+
+# Actix Web dependencies
+actix-multipart = "0.6"
+actix-cors = "0.6"
+
+# Serialization/deserialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+uuid = { version = "1.4", features = ["v4", "serde"] }
+derive_more = "0.99"
+tempfile = "3.8"
+log = "0.4"
+env_logger = "0.10"
+
+

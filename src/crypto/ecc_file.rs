@@ -11,6 +11,31 @@ use aes_gcm::{
 use rand::{RngCore, rngs::OsRng};
 use anyhow::{Context, Result};
 
+
+
+// Function to generate the ephemeral key pair
+pub fn generate_key_pair() -> Result<(EphemeralSecret, PublicKey)> {
+    let mut rng = OsRng;
+    let secret = EphemeralSecret::random(&mut rng);
+    let public = PublicKey::from(&secret);
+    Ok((secret, public))
+}
+
+// Function to generate the shared secret using Diffie-Hellman
+pub fn generate_shared_secret(
+    ephemeral_secret: &EphemeralSecret,
+    recipient_public: &PublicKey,
+) -> Result<SharedSecret> {
+    let shared_secret = ephemeral_secret.diffie_hellman(recipient_public);
+    Ok(shared_secret)
+}
+
+// Function to get the recipient's public key from the ephemeral secret
+pub fn get_recipient_public_key(ephemeral_secret: &EphemeralSecret) -> PublicKey {
+    PublicKey::from(ephemeral_secret)
+}
+
+// Encrypts a file using AES-GCM with the generated shared secret
 pub fn encrypt_file(
     input_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
@@ -18,7 +43,7 @@ pub fn encrypt_file(
 ) -> Result<()> {
     let mut rng = OsRng;
     let (ephemeral_secret, ephemeral_public) = generate_key_pair()?;
-    let shared_secret = ephemeral_secret.diffie_hellman(recipient_public);
+    let shared_secret = generate_shared_secret(&ephemeral_secret, recipient_public)?;
     let shared_secret_bytes = shared_secret.raw_secret_bytes();
     let aes_key = GenericArray::from_slice(&shared_secret_bytes[..32]);
     let cipher = Aes256Gcm::new(aes_key);
@@ -39,6 +64,7 @@ pub fn encrypt_file(
     Ok(())
 }
 
+// Decrypts a file using AES-GCM with the generated shared secret
 pub fn decrypt_file(
     input_path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
@@ -65,11 +91,4 @@ pub fn decrypt_file(
     fs::write(output_path, plaintext).context("Failed to write decrypted file")?;
 
     Ok(())
-}
-
-pub fn generate_key_pair() -> Result<(EphemeralSecret, PublicKey)> {
-    let mut rng = OsRng;
-    let secret = EphemeralSecret::random(&mut rng);
-    let public = PublicKey::from(&secret);
-    Ok((secret, public))
 }
