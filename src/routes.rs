@@ -4,6 +4,7 @@ use actix_web::{
     post, get,
 };
 use actix_multipart::Multipart;
+use anyhow::Ok;
 use futures::{StreamExt, TryStreamExt};
 use serde::{Serialize, Deserialize};
 use std::sync::Mutex;
@@ -62,15 +63,15 @@ lazy_static! {
 }
 
 // Custom error type for the API
-#[derive(Debug, Display, Error)]
+#[derive(Debug, thiserror::Error)]
 enum ApiError {
-    #[display(fmt = "Internal Server Error: {}", _0)]
+    #[error("Internal Server Error: {0}")]
     InternalError(String),
     
-    #[display(fmt = "Bad Request: {}", _0)]
+    #[error("Bad Request: {0}")]
     BadRequest(String),
     
-    #[display(fmt = "Not Found: {}", _0)]
+    #[error("Not Found: {0}")]
     NotFound(String),
 }
 
@@ -132,7 +133,7 @@ struct EncryptionRequest {
 #[post("/key-pair")]
 pub async fn generate_key_pair_handler() -> Result<HttpResponse, Error> {
     match generate_key_pair() {
-        Ok((secret, public)) => {
+        std::result::Result::Ok((secret, public)) => {
             let key_id = Uuid::new_v4().to_string();
             let public_key_bytes = public.to_sec1_bytes();
             let public_key_b64 = general_purpose::STANDARD.encode(&public_key_bytes);
@@ -140,7 +141,7 @@ pub async fn generate_key_pair_handler() -> Result<HttpResponse, Error> {
             // Store the ephemeral secret with its ID
             KEY_CACHE.lock().unwrap().insert(key_id.clone(), secret);
             
-            Ok(HttpResponse::Ok().json(KeyPairResponse {
+            std::result::Result::Ok(HttpResponse::Ok().json(KeyPairResponse {
                 key_id,
                 public_key: public_key_b64,
             }))
@@ -158,12 +159,12 @@ pub async fn generate_shared_secret_handler(
     req: web::Json<SharedSecretRequest>,
 ) -> Result<HttpResponse, Error> {
     let recipient_public_bytes = match general_purpose::STANDARD.decode(&req.recipient_public_key) {
-        Ok(bytes) => bytes,
+        std::result::Result::Ok(bytes) => bytes,
         Err(_) => return Err(ApiError::BadRequest("Invalid public key format".into()).into()),
     };
     
     let recipient_public = match PublicKey::from_sec1_bytes(&recipient_public_bytes) {
-        Ok(key) => key,
+        std::result::Result::Ok(key) => key,
         Err(_) => return Err(ApiError::BadRequest("Invalid public key".into()).into()),
     };
     
@@ -174,11 +175,11 @@ pub async fn generate_shared_secret_handler(
     };
     
     match generate_shared_secret(ephemeral_secret, &recipient_public) {
-        Ok(shared_secret) => {
+        std::result::Result::Ok(shared_secret) => {
             let shared_secret_bytes = shared_secret.raw_secret_bytes();
             let shared_secret_b64 = general_purpose::STANDARD.encode(&shared_secret_bytes);
             
-            Ok(HttpResponse::Ok().json(SharedSecretResponse {
+            std::result::Result::Ok(HttpResponse::Ok().json(SharedSecretResponse {
                 shared_secret: shared_secret_b64,
             }))
         },
@@ -202,7 +203,7 @@ pub async fn get_recipient_public_key_handler(key_id: web::Path<String>) -> Resu
     let public_key_bytes = public_key.to_sec1_bytes();
     let public_key_b64 = general_purpose::STANDARD.encode(&public_key_bytes);
     
-    Ok(HttpResponse::Ok().json(PublicKeyResponse {
+    std::result::Result::Ok(HttpResponse::Ok().json(PublicKeyResponse {
         public_key: public_key_b64,
     }))
 }
@@ -221,12 +222,12 @@ pub async fn encrypt_file_handler(
     
     // Parse the recipient's public key
     let recipient_public_bytes = match general_purpose::STANDARD.decode(&req_query.recipient_public_key) {
-        Ok(bytes) => bytes,
+        std::result::Result::Ok(bytes) => bytes,
         Err(_) => return Err(ApiError::BadRequest("Invalid public key format".into()).into()),
     };
     
     let recipient_public = match PublicKey::from_sec1_bytes(&recipient_public_bytes) {
-        Ok(key) => key,
+        std::result::Result::Ok(key) => key,
         Err(_) => return Err(ApiError::BadRequest("Invalid public key".into()).into()),
     };
     
@@ -250,11 +251,20 @@ pub async fn encrypt_file_handler(
                 error!("Error reading field chunk: {}", e);
                 ApiError::BadRequest("Failed to read file data".into())
             })? {
-                file = web::block(move || file.write_all(&chunk).map(|_| file))
-                    .await
+                let chunk = chunk.to_vec();
+                let path = file_path.clone();
+                 web::block(move ||  {
+                    use std::io::Write;
+                    let mut f = std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(&path)?;
+                    f.write_all(&chunk)?;
+                    std::result::Result::Ok::<_, std::io::Error>(())
+                 }
+                    ).await
                     .map_err(|e| {
                         error!("Failed to write to temp file: {:?}", e);
-                        ApiError::InternalError("Failed to process file".into())
+                        ApiError::InternalError("failed to process file".into())
                     })?;
             }
             
@@ -290,9 +300,9 @@ pub async fn encrypt_file_handler(
     
     // Return the encrypted data
     Ok(HttpResponse::Ok()
-        .content_type("application/octet-stream")
-        .append_header(("Content-Disposition", format!("attachment; filename=\"encrypted_{}.bin\"", file_id)))
-        .body(encrypted_data))
+    .content_type("application/octet-stream")
+    .append_header(("Content-Disposition", format!("attachment; filename=\"encrypted_{}.bin\"", file_id)))
+    .body(encrypted_data))
 }
 
 // Decrypt a file using a stored ephemeral secret
@@ -374,7 +384,7 @@ pub async fn decrypt_file_handler(
         })?;
     
     // Return the decrypted data
-    Ok(HttpResponse::Ok()
+    std::result::Result::Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .append_header(("Content-Disposition", "attachment; filename=\"decrypted_file\""))
         .body(decrypted_data))
