@@ -1,12 +1,14 @@
 use std::{borrow::Cow, path::Path};
 use aes_gcm::Nonce;
 use generic_array::GenericArray;
-use mothrbox::crypto::ecc_file::{generate_key_pair, generate_shared_secret};
-use p256::PublicKey;
+use mothrbox::crypto::ecc_file::{encrypt_bytes, encrypt_file, generate_key_pair, generate_shared_secret};
+use p256::elliptic_curve::PublicKey;
 // use aes_gcm::aes;
 use rocket::{data::ToByteUnit, fs::TempFile, http::uri::Absolute, response::stream::ByteStream, tokio::fs::File, Data};
 use rocket::response::content::RawMsgPack;
 use tokio::io::AsyncReadExt;
+use tokio::stream;
+use crate::crypto::ecc_file::get_recipient_public_key;
 use crate::paste_id::PasteId;
 
 use aes::Aes256;
@@ -54,28 +56,16 @@ pub async fn upload(paste: rocket::Data<'_>) -> std::io::Result<String> {
 
 #[post("/upload", data =  "<data>")]
 pub async fn upload_file( data: Data<'_>) -> std::io::Result<RawMsgPack<Vec<u8>>> {
-        // Read the file into memory (limit: 10MB for safety)
-        let mut input_data = Vec::new();
-        data.open(10.megabytes()).read_to_end(&mut input_data).await?;
-    
-        // Generate a random key and nonce (you can also use a fixed one for testing)
-        let (ephemeral_secret, ephemeral_public) = generate_key_pair().expect("Key pair generation failed");
-        let mut key = [0u8; 32];
-        let mut nonce = [0u8; 16];
-        OsRng.fill_bytes(&mut key);
-        OsRng.fill_bytes(&mut nonce);
-    
-        // Encrypt in-place
-        let mut cipher = Aes256Ctr::new(&key.into(), &nonce.into());
-        let mut encrypted_data = input_data.clone();
-        cipher.apply_keystream(&mut encrypted_data);
-    
-        // Prepend nonce to the ciphertext (so it can be decrypted later)
-        let mut result = nonce.to_vec();
-        result.extend(encrypted_data);
-    
-        // Return as downloadable binary file
-        Ok(RawMsgPack(result))
+    let mut buffer = Vec::new();
+    let mut stream = data.open(5.mebibytes()); // size limit will be changed
+    stream.read_to_end(&mut buffer).await?;
+
+    let (_, recipient_public) = generate_key_pair().expect("Key pair generation failed");
+
+    match encrypt_bytes(&buffer, &recipient_public) {
+        Ok(encrypted_data) => Ok(RawMsgPack(encrypted_data)),
+        Err(e) => Err(e)
+    }
 
 }
 
