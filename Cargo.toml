@@ -7,24 +7,19 @@ edition = "2021"
 p256 = {version = "0.13.0", features = ["ecdh"]}
 aes-gcm =  { version = "0.10", features = ["std"] }
 rand = "0.8"
-sha2 = "0.10" 
+sha2 = "0.10.9" 
 hex = "0.4"
 rayon = "1.10.0"
 #serde = { version = "1.0.219", features = ["derive"] }
 futures = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 dotenv = "0.15.0"
-actix = "0.13.5"
-chrono = {version = "0.4.40", features = ["serde"]}
+chrono = {version = "0.4.41", features = ["serde"]}
 hmac = "0.12.1"
 lazy_static = "1.5.0"
 bcrypt = "0.17.0"
-actix-web = "4.4"
 base64 = "0.22.1"
 
-# Actix Web dependencies
-actix-multipart = "0.6"
-actix-cors = "0.6"
 
 # Serialization/deserialization
 serde = { version = "1.0", features = ["derive"] }
@@ -32,9 +27,16 @@ serde_json = "1.0"
 
 # Utilities
 uuid = { version = "1.4", features = ["v4", "serde"] }
-derive_more = "0.99.17"
-thiserror = "1.0"
+# derive_more = "2.0.1"
+thiserror = "2.0.12"
 tempfile = "3.8"
 log = "0.4"
 env_logger = "0.10"
-anyhow = "1.0.98"
+generic-array = "0.14"
+
+# rocket
+rocket = "0.5.1"
+
+aes = "0.8"
+ctr = "0.9"
+cipher = "0.4"
