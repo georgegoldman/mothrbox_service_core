@@ -101,6 +101,37 @@ pub fn encrypt_bytes(
     Ok(output_data)
 }
 
+pub fn decrypt_bytes(
+    plaintext: &[u8],
+    recipient_secret: &EphemeralSecret
+) -> Result<Vec<u8>, std::io::Error> {
+
+    if plaintext.len() < 65 + 12 {
+        return Err(std::io::Error::new(std::io::ErrorKind::Other, "File too short to be valid enctypted data"));
+    }
+
+    let (ephemeral_public_bytes, rest) = plaintext.split_at(65);
+    let (nonce_bytes, ciphertext) = rest.split_at(12);
+
+    let ephemeral_public = PublicKey::from_sec1_bytes(ephemeral_public_bytes)
+    .map_err(|e| {
+        eprintln!("Invalid ephemeral public key {:?}", e);
+        std::io::Error::new(std::io::ErrorKind::Other, "Invalid Ephemeral public key")
+    })?;
+    let shared_secret = recipient_secret.diffie_hellman(&ephemeral_public);
+    let shared_secret_bytes = shared_secret.raw_secret_bytes();
+
+    let aes_key = GenericArray::from_slice(&shared_secret_bytes[..32]);
+
+    let cipher = Aes256Gcm::new(aes_key);
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    let plaintext = cipher.decrypt(nonce, ciphertext).map_err(|_e| {
+        std::io::Error::new(std::io::ErrorKind::Other, "Decryption failed")
+    })?;
+    Ok(plaintext)
+}
+
 // Decrypts a file using AES-GCM with the generated shared secret
 pub fn decrypt_file(
     input_path: impl AsRef<Path>,

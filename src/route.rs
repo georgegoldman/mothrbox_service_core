@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::Path};
 use aes_gcm::Nonce;
 use generic_array::GenericArray;
-use mothrbox::crypto::ecc_file::{encrypt_bytes, encrypt_file, generate_key_pair, generate_shared_secret};
+use mothrbox::crypto::ecc_file::{decrypt_bytes, encrypt_bytes, encrypt_file, generate_key_pair, generate_shared_secret};
 use p256::elliptic_curve::PublicKey;
 // use aes_gcm::aes;
 use rocket::{data::ToByteUnit, fs::TempFile, http::uri::Absolute, response::stream::ByteStream, tokio::fs::File, Data};
@@ -15,6 +15,7 @@ use aes::Aes256;
 use ctr::Ctr128BE;
 use cipher::{KeyIvInit, StreamCipher};
 use rand::{rngs::OsRng, RngCore};
+use std::io;
 
 type Aes256Ctr = Ctr128BE<Aes256>;
 
@@ -69,3 +70,21 @@ pub async fn upload_file( data: Data<'_>) -> std::io::Result<RawMsgPack<Vec<u8>>
 
 }
 
+
+#[post("/decrypt", data = "<data>")]
+pub async fn decrypt_endpoint(data: Data<'_>) -> Result<RawMsgPack<Vec<u8>>, io::Error> {
+    let mut buffer = Vec::new();
+    let mut stream = data.open(10.megabytes()); // Adjust size limit as needed
+    stream.read_to_end(&mut buffer).await?;
+
+    // You must get or derive this securely. Here, we assume it's available.
+    let (recipient_secret, _) = generate_key_pair().expect("key generation failed"); // Replace with real logic
+
+    match decrypt_bytes(&buffer, &recipient_secret) {
+        Ok(plaintext) => Ok(RawMsgPack(plaintext)),
+        Err(e) => {
+            eprintln!("Decryption error: {:?}", e);
+            Err(io::Error::new(io::ErrorKind::Other, "Decryption failed"))
+        }
+    }
+}
