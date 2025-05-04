@@ -1,32 +1,20 @@
-# Use the official Rust image
-FROM rust:1.81 AS builder
+# Step 1: Build the binary with musl
+FROM rust:1.81 as builder
 
 # Install musl tools
 RUN rustup target add x86_64-unknown-linux-musl
 
-# Set the working directory
-WORKDIR /usr/src/app
-
-# Copy your code
+WORKDIR /app
 COPY . .
 
-# Build the app in release mode
-RUN cargo build --release
+# Build statically-linked binary
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# Use a lightweight final image
-FROM debian:buster-slim
+# Step 2: Create minimal runtime image
+FROM alpine:latest
 
-# Create a new user to run your app
-RUN useradd -m appuser
-
-# Copy the compiled binary from builder
-COPY --from=builder /usr/src/app/target/release/mothrbox /usr/local/bin/mothrbox
-
-# Set permissions
-RUN chown appuser:appuser /usr/local/bin/mothrbox
-
-# Switch to the new user
-USER appuser
+WORKDIR /app
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/mothrbox .
 
 # Run the binary
-CMD ["mothrbox"]
+CMD ["./mothrbox"]
