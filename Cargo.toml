@@ -40,3 +40,4 @@ rocket = { version = "0.5.1", features = ["json"] }
 aes = "0.8"
 ctr = "0.9"
 cipher = "0.4"  
+rocket_cors = "0.6.0"

@@ -1,14 +1,18 @@
-#[macro_use] extern crate rocket;
+#[macro_use]
+extern crate rocket;
 use std::path::Path;
+use dotenv::dotenv;
+use std::env;
 
 use mothrbox::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file };
 // use route::post_video;
+
 
 mod crypto;
 mod route;
 mod paste_id;
 
-use  paste_id::PasteId;
+use rocket_cors::{AllowedOrigins, CorsOptions};
 fn _test_encrytion()
 {
      // 1. Generate key pair (recipient)
@@ -37,12 +41,30 @@ fn _test_encrytion()
 
 
 #[launch]
-fn rocket() -> _ {
-     rocket::build().mount("/", routes![
+async fn rocket() -> _ {
+     dotenv().ok();
+
+     let port  = env::var("PORT")
+          .unwrap_or_else(|_| "7000".to_string())
+          .parse::<u16>()
+          .expect("Invalid PORT number");
+     let cors = CorsOptions::default()
+     .allowed_origins(AllowedOrigins::all())
+     .to_cors()
+     .unwrap();
+
+     rocket::custom(rocket::Config {
+          address: "0.0.0.0".parse().unwrap(),
+          port,
+          ..rocket::Config::default()
+     })
+     .attach(cors)
+     .mount("/engine/core", routes![
           route::index, 
           route::retrieve, 
           route::upload_file,
           route::decrypt_endpoint,
           route::keypair,
           ])
+     
 }
