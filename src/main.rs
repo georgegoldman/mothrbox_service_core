@@ -38,5 +38,11 @@ fn _test_encrytion()
 
 #[launch]
 fn rocket() -> _ {
-     rocket::build().mount("/", routes![route::index, route::retrieve, route::upload, route::upload_file])
+     rocket::build().mount("/", routes![
+          route::index, 
+          route::retrieve, 
+          route::upload_file,
+          route::decrypt_endpoint,
+          route::keypair,
+          ])
 }

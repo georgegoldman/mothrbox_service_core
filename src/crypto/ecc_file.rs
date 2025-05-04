@@ -3,8 +3,7 @@ use std::fs;
 use std::path::Path;
 use aes::Aes256;
 use p256::{
-    ecdh::{EphemeralSecret, SharedSecret},
-    PublicKey,
+    ecdh::{EphemeralSecret, SharedSecret}, NistP256, PublicKey
 };
 use aes_gcm::{
     aead::{Aead, KeyInit, generic_array::GenericArray},
@@ -77,11 +76,12 @@ pub fn encrypt_file(
 
 pub fn encrypt_bytes(
     plaintext: &[u8],
-    recipient_public: &PublicKey
+    sender_key: &EphemeralSecret,
+    recipient_public: &PublicKey,
 ) -> Result<Vec<u8>, std::io::Error> {
     let mut rng = OsRng;
-    let (ephemeral_secret, ephemeral_public) = generate_key_pair()?;
-    let share_secret = generate_shared_secret(&ephemeral_secret, recipient_public)?;
+    // let (ephemeral_secret, ephemeral_public) = generate_key_pair()?;
+    let share_secret = generate_shared_secret(&sender_key, recipient_public)?;
     let shared_secret_bytes = share_secret.raw_secret_bytes();
     let aes_key = GenericArray::from_slice(&shared_secret_bytes[..32]);
     let cipher = Aes256Gcm::new(aes_key);
@@ -94,7 +94,7 @@ pub fn encrypt_bytes(
         std::io::Error::new(std::io::ErrorKind::Other, "Encryption Failed")
     }) ?;
 
-    let mut output_data = ephemeral_public.to_sec1_bytes().to_vec();
+    let mut output_data = recipient_public.to_sec1_bytes().to_vec();
     output_data.extend_from_slice(&nonce);
     output_data.extend_from_slice(&ciphertext);
 
