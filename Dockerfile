@@ -1,6 +1,9 @@
 # Use the official Rust image
 FROM rust:1.81 AS builder
 
+# Install musl tools
+RUN rustup target add x86_64-unknown-linux-musl
+
 # Set the working directory
 WORKDIR /usr/src/app
 
