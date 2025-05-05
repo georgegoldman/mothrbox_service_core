@@ -48,3 +48,4 @@ rocket_db_pools = { version = "0.2.0", features = ["mongodb"] }
 
 # sui
 sui_sdk = { git = "https://github.com/mystenlabs/sui", package = "sui-sdk", branch = "main"}
+move-core-types = "0.0.3"
