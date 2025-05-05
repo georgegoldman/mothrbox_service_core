@@ -47,5 +47,5 @@ mongodb = { version = "2.7.1", features = ["tokio-runtime", "bson-chrono-0_4"] }
 rocket_db_pools = { version = "0.2.0", features = ["mongodb"] }
 
 # sui
-move-core-types = "0.0.3"
-sui_sdk = { git = "https://github.com/mystenlabs/sui", package = "sui-sdk", branch = "main"}
+sui_sdk = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.47.1", package = "sui-sdk" }
+move-core-types = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.47.1", package = "move-core-types" }
