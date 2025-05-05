@@ -12,7 +12,7 @@ hex = "0.4"
 rayon = "1.10.0"
 #serde = { version = "1.0.219", features = ["derive"] }
 futures = "0.3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "full"] }
 dotenv = "0.15.0"
 chrono = {version = "0.4.41", features = ["serde"]}
 hmac = "0.12.1"
@@ -31,7 +31,7 @@ uuid = { version = "1.4", features = ["v4", "serde"] }
 thiserror = "2.0.12"
 tempfile = "3.8"
 log = "0.4"
-env_logger = "0.10"
+env_logger = "0.11.8"
 generic-array = "0.14"
 
 # rocket
@@ -41,3 +41,10 @@ aes = "0.8"
 ctr = "0.9"
 cipher = "0.4"  
 rocket_cors = "0.6.0"
+
+#db 
+mongodb = { version = "2.7.1", features = ["tokio-runtime", "bson-chrono-0_4"] }
+rocket_db_pools = { version = "0.2.0", features = ["mongodb"] }
+
+# sui
+sui_sdk = { git = "https://github.com/mystenlabs/sui", package = "sui-sdk"}

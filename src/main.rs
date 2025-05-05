@@ -9,8 +9,12 @@ use mothrbox::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file 
 
 
 mod crypto;
-mod route;
 mod paste_id;
+mod models;
+mod endpoints;
+mod db;
+mod dto;
+mod middleware;
 
 use rocket_cors::{AllowedOrigins, CorsOptions};
 fn _test_encrytion()
@@ -44,6 +48,10 @@ fn _test_encrytion()
 async fn rocket() -> _ {
      dotenv().ok();
 
+     // connect the different database collections
+     let token_collection = db::connect::<models::ApiToken>().await;
+     let keypair_collection = db::connect::<models::KeyPair>().await;
+
      let port  = env::var("PORT")
           .unwrap_or_else(|_| "7000".to_string())
           .parse::<u16>()
@@ -59,12 +67,15 @@ async fn rocket() -> _ {
           ..rocket::Config::default()
      })
      .attach(cors)
+     .manage(token_collection)
+     .manage(keypair_collection)
      .mount("/engine/core", routes![
-          route::index, 
-          route::retrieve, 
-          route::upload_file,
-          route::decrypt_endpoint,
-          route::keypair,
+          endpoints::upload_file,
+          endpoints::decrypt_endpoint,
+          endpoints::keypair,
+          endpoints::create_keypair,
+          endpoints::issue_token,
+          endpoints::get_all_keypair,
           ])
      
 }
