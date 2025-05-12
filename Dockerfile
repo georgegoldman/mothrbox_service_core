@@ -1,5 +1,5 @@
 # Step 1: Build the binary with musl
-FROM rust:1.81 AS builder
+FROM rust:1.82-slim AS builder
 
 # Install necessary dependencies for MUSL build
 RUN apt-get update && apt-get install -y musl-tools pkg-config libssl-dev
