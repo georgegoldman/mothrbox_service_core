@@ -6,6 +6,8 @@ use std::env;
 
 use mothrbox::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file, encrypt_large_file };
 // use route::post_video;
+use std::process::Command;
+
 
 
 mod crypto;
@@ -48,6 +50,11 @@ fn _test_encrytion()
 
 #[launch]
 async fn rocket() -> _ {
+         let uname = Command::new("uname").arg("-a").output().unwrap();
+    println!("OS Info: {}", String::from_utf8_lossy(&uname.stdout));
+
+    let arch = Command::new("arch").output().unwrap();
+    println!("Architecture: {}", String::from_utf8_lossy(&arch.stdout));
      dotenv().ok();
 
      // connect the different database collections
