@@ -24,7 +24,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /app
 
 # Copy Cargo.toml and Cargo.lock for dependency caching
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 
 # Fetch dependencies before copying the entire source to leverage Docker cache
 RUN cargo fetch
