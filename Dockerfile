@@ -5,7 +5,7 @@ FROM rust:1.82-slim as builder
 RUN apt-get update && apt-get install -y \
     curl git unzip cmake make gcc g++ \
     pkg-config libssl-dev \
-    musl-tools musl-dev musl-g++ \
+    musl-tools \
     clang llvm-dev libclang-dev \
     && rustup component add rustfmt \
     && rustup target add x86_64-unknown-linux-musl
