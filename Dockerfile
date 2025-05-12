@@ -1,37 +1,46 @@
-# Step 1: Build your own app binary
-FROM rust:1.82-slim AS builder
+# Step 1: Builder with musl for static binary
+FROM rust:1.82-slim as builder
 
-RUN apt-get update && \
-    apt-get install -y musl-tools pkg-config libssl-dev curl git unzip
+RUN apt-get update && apt-get install -y \
+  musl-tools \
+  pkg-config \
+  libssl-dev \
+  curl \
+  git \
+  clang \
+  llvm-dev \
+  libclang-dev \
+  cmake \
+  make \
+  gcc \
+  g++ \
+  unzip \
+  && rustup target add x86_64-unknown-linux-musl
 
-RUN rustup target add x86_64-unknown-linux-musl
+# Install Sui CLI
+RUN cargo install --locked \
+  --git https://github.com/MystenLabs/sui.git \
+  --tag mainnet-v1.47.1 \
+  sui \
+  --features tracing \
+  --target x86_64-unknown-linux-musl
 
-# Set work directory
 WORKDIR /app
-
-# Copy only manifest first to leverage Docker cache
-COPY Cargo.toml ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release --target x86_64-unknown-linux-musl
-RUN rm -r src
-
-# Copy actual source
 COPY . .
 
-# Build your binary
+# Optional: force static linking (OpenSSL sometimes requires it)
+# RUN mkdir -p .cargo && echo '[target.x86_64-unknown-linux-musl]\nrustflags = ["-C", "target-feature=+crt-static"]' > .cargo/config.toml
+
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# Step 2: Create final minimal image
-FROM alpine:latest
+# Step 2: Copy to runtime
+FROM debian:bullseye-slim
 
-RUN apk add --no-cache ca-certificates curl
-
-# Download prebuilt Sui CLI
-RUN curl -L https://github.com/MystenLabs/sui/releases/download/mainnet-v1.47.1/sui -o /usr/local/bin/sui && \
-    chmod +x /usr/local/bin/sui
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/mothrbox .
+COPY --from=builder /root/.cargo/bin/sui /usr/local/bin/sui
 
 CMD ["./mothrbox"]
