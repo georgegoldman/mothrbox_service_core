@@ -10,7 +10,7 @@ RUN rustup target add x86_64-unknown-linux-musl
 WORKDIR /app
 
 # Copy only manifest first to leverage Docker cache
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release --target x86_64-unknown-linux-musl
 RUN rm -r src
