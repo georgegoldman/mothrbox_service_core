@@ -1,5 +1,5 @@
 # Step 1: Builder with musl for static binary
-FROM rust:1.82-alpine as builder
+FROM rust:1.82-alpine3.16 as builder
 
 # Enable Alpine community repository and install required packages
 RUN apk update && apk add --no-cache \
