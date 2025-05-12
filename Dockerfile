@@ -1,12 +1,21 @@
 # Step 1: Builder with musl for static binary
-FROM rust:1.82-slim as builder
+FROM rust:1.82-alpine as builder
 
-
-RUN apt-get update && apt-get install -y \
-    curl git unzip cmake make gcc g++ \
-    pkg-config libssl-dev \
-    musl-tools \
-    clang llvm-dev libclang-dev \
+# Install required packages
+RUN apk add --no-cache \
+    curl \
+    git \
+    unzip \
+    cmake \
+    make \
+    gcc \
+    g++ \
+    pkg-config \
+    musl-dev \
+    clang \
+    llvm-dev \
+    libclang-dev \
+    openssl-dev \
     && rustup component add rustfmt \
     && rustup target add x86_64-unknown-linux-musl
 
