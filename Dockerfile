@@ -8,6 +8,18 @@ RUN apt-get update && \
 # Add musl target
 RUN rustup target add x86_64-unknown-linux-musl
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    clang \
+    llvm-dev \
+    libclang-dev \
+    pkg-config \
+    libssl-dev \
+    cmake \
+    make \
+    gcc \
+    g++ \
+ && rm -rf /var/lib/apt/lists/*
+
 # Install Sui CLI from Git (main branch)
 RUN cargo install --locked \
     --git https://github.com/MystenLabs/sui.git \
