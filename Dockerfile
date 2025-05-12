@@ -1,8 +1,8 @@
 # Step 1: Builder with musl for static binary
 FROM rust:1.82-alpine as builder
 
-# Install required packages
-RUN apk add --no-cache \
+# Enable Alpine community repository and install required packages
+RUN apk update && apk add --no-cache \
     curl \
     git \
     unzip \
@@ -10,11 +10,11 @@ RUN apk add --no-cache \
     make \
     gcc \
     g++ \
-    pkg-config \
+    pkgconfig \
     musl-dev \
     clang \
     llvm-dev \
-    libclang-dev \
+    libclang \
     openssl-dev \
     && rustup component add rustfmt \
     && rustup target add x86_64-unknown-linux-musl
