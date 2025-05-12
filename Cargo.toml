@@ -51,3 +51,6 @@ sui_sdk = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.47.1", 
 move-core-types = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.47.1", package = "move-core-types" }
 orion = "0.17.10"
 k256 = "0.13.4"
+[profile.dev]
+codegen-units = 16
+
