@@ -8,8 +8,12 @@ RUN apt-get update && \
 # Add musl target
 RUN rustup target add x86_64-unknown-linux-musl
 
-# Install Sui CLI (using install script from MystenLabs)
-RUN curl -s https://raw.githubusercontent.com/MystenLabs/sui/main/scripts/install.sh | bash
+# Install Sui CLI from Git (testnet branch)
+RUN cargo install --locked \
+    --git https://github.com/MystenLabs/sui.git \
+    --branch testnet \
+    sui \
+    --features tracing
 
 # Make Sui CLI available system-wide
 ENV PATH="/root/.cargo/bin:${PATH}"
