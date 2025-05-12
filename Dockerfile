@@ -1,21 +1,14 @@
 # Step 1: Builder with musl for static binary
 FROM rust:1.82-slim as builder
 
+
 RUN apt-get update && apt-get install -y \
-  musl-tools \
-  pkg-config \
-  libssl-dev \
-  curl \
-  git \
-  clang \
-  llvm-dev \
-  libclang-dev \
-  cmake \
-  make \
-  gcc \
-  g++ \
-  unzip \
-  && rustup target add x86_64-unknown-linux-musl
+    curl git unzip cmake make gcc g++ \
+    pkg-config libssl-dev \
+    musl-tools musl-dev musl-g++ \
+    clang llvm-dev libclang-dev \
+    && rustup component add rustfmt \
+    && rustup target add x86_64-unknown-linux-musl
 
 # Install Sui CLI
 RUN cargo install --locked \
