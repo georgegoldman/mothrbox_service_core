@@ -8,10 +8,10 @@ RUN apt-get update && \
 # Add musl target
 RUN rustup target add x86_64-unknown-linux-musl
 
-# Install Sui CLI from Git (testnet branch)
+# Install Sui CLI from Git (main branch)
 RUN cargo install --locked \
     --git https://github.com/MystenLabs/sui.git \
-    --branch testnet \
+    --tag mainnet-v1.47.1 \
     sui \
     --features tracing
 
