@@ -19,8 +19,7 @@ pub struct KeyPair {
     // #[serde(skip_serializing_if = "Option::is_none")]
     pub r#algorithm: Option<Algorithm>, // Optional enum field
 
-    pub private_key: String,
-    pub public_key: String,
+    pub secret_key: String,
 
     #[serde(default = "default_is_active")]
     pub is_active: bool,

@@ -7,7 +7,11 @@ use generic_array::GenericArray;
 use mongodb::bson::doc;
 use mongodb::bson::oid::{self, ObjectId};
 use mongodb::{results, Collection};
-use mothrbox::crypto::ecc_file::{decrypt_bytes, encrypt_bytes, encrypt_file, generate_key_pair, generate_shared_secret};
+use mothrbox::crypto::ecc_file::{decrypt_bytes, encrypt_bytes, encrypt_file, encrypt_large_file, generate_key_pair, generate_shared_secret};
+use mothrbox::crypto::orion_encryption::{create_key, nonce};
+use orion::aead::streaming::Nonce;
+use orion::hazardous::aead::xchacha20poly1305;
+use p256::elliptic_curve::ff::derive::bitvec::view::AsBits;
 use p256::elliptic_curve::PublicKey;
 use p256::NistP256;
 use rocket::http::Status;
@@ -20,12 +24,15 @@ use serde::Serialize;
 use tokio::io::AsyncReadExt;
 use tokio::stream;
 use crate::crypto::ecc_file::get_recipient_public_key;
+use crate::crypto::orion_encryption::{encrypt_core};
 use crate::dto::key::KeyPairDTO;
 use crate::dto::GenerateKeypairRequest;
 use crate::middleware::api_token::AuthenticatedClient;
 use crate::models::api_token::ApiToken;
 use crate::models::key::KeyPair;
 use crate::paste_id::PasteId;
+use crate::sui_core;
+use crate::walrus_core::walrus_impl;
 
 use aes::Aes256;
 use ctr::Ctr128BE;
@@ -38,27 +45,42 @@ use std::fmt;
 
 type Aes256Ctr = Ctr128BE<Aes256>;
 
+#[get("/walrus_test")]
+pub fn walrus_test() -> Result<String, rocket::response::status::Custom<String>> {
+    let walrus_init = walrus_impl::WalrusCore{};
 
-
-#[get("/")]
-pub fn index() -> &'static str {
-
-    "USAGE
-
-      POST /
-
-          accepts raw data in the body of the request and responds with a URL of
-          a page containing the body's content
-
-      GET /<id>
-
-          retrieves the content for the paste with id `<id>`"
+    match walrus_init.store(
+        "/home/goldman/mothrbox/dummy.mp4",
+        "/home/goldman/mothrbox/client_config.yaml",
+        "/home/goldman/.sui/sui_config/client.yaml"
+    ) {
+        Ok(output) => Ok(output),
+        Err(e) => Err(rocket::response::status::Custom(
+            Status::InternalServerError,
+            format!("Command failed: {}", e),
+        )),
+    }
 }
+
+#[get("/sui_test")]
+pub fn sui_test() -> Result<String, rocket::response::status::Custom<String>> {
+    let sui_init = sui_core::SuiCli{};
+
+    match sui_init.get_active_wallet() {
+        Ok(output) => Ok(output),
+        Err(e) => Err(rocket::response::status::Custom(
+            Status::InternalServerError,
+            format!("Command failed {}", e)
+        ))
+    }
+}
+
 
 #[get("/<id>")]
 pub async fn retrieve(id: PasteId<'_>) -> Option<File> {
     File::open(id.file_path()).await.ok()
 }
+
 
 
 
@@ -160,20 +182,19 @@ pub async fn create_keypair(
 ) -> 
 rocket::response::status::Custom<Json<String>>
 {
-    let (  private_key, public_key) = generate_key_pair()
-    .map_err(|_| rocket::response::status::Custom(
-        Status::InternalServerError,
-        Json("Error creating key pairs".to_string())
-    )).expect("there was a problem trying to create keys");
+    let nonce = nonce();
+    let secret_key = create_key(key_data.password.clone(), nonce);
+    let key_bytes = secret_key.unprotected_as_bytes();
+    let key_hex = hex::encode(key_bytes);
 
     // key to base64
-    let shared_secret: p256::elliptic_curve::ecdh::SharedSecret<NistP256> = private_key.diffie_hellman(&public_key);
-    let private_bytes = shared_secret.raw_secret_bytes(); // [u8, 32]
-    let public_bytes = public_key.to_sec1_bytes();
+    // let shared_secret: p256::elliptic_curve::ecdh::SharedSecret<NistP256> = private_key.diffie_hellman(&public_key);
+    // let private_bytes = shared_secret.raw_secret_bytes(); // [u8, 32]
+    // let public_bytes = public_key.to_sec1_bytes();
 
     
-    let private_b64 = general_purpose::STANDARD.encode(private_bytes);
-    let public_b64 = general_purpose::STANDARD.encode(&public_bytes);
+    // let private_b64 = general_purpose::STANDARD.encode(private_bytes);
+    // let public_b64 = general_purpose::STANDARD.encode(&public_bytes);
     let now  = mongodb::bson::DateTime::from_chrono(Utc::now());
     let user_object_id  = match ObjectId::parse_str(&key_data.user) {
         Ok(oid) => oid,
@@ -187,8 +208,7 @@ rocket::response::status::Custom<Json<String>>
         user: user_object_id,
         algorithm: Some(key_data.algorithm.clone()),
         is_active: true,
-        private_key: private_b64,
-        public_key: public_b64,
+        secret_key: key_hex,
         created_at: Some(now),
         updated_at: Some(now),
     };
@@ -207,20 +227,44 @@ rocket::response::status::Custom<Json<String>>
 
 
 
-#[post("/encrypy_file", data =  "<data>")]
-pub async fn upload_file( data: Data<'_>) -> std::io::Result<RawMsgPack<Vec<u8>>>{
-    let mut buffer = Vec::new();
-    let mut stream = data.open(5.mebibytes()); // size limit will be changed
-    stream.read_to_end(&mut buffer).await?;
+// #[post("/encrypt_file/<user_id>", data =  "<data>")]
+// pub async fn upload_file( 
+//     data: Data<'_>,
+//     _client: AuthenticatedClient,
+//     user_id: &str,
+//     db: &State<Collection<KeyPair>>
+// ) -> std::io::Result<RawMsgPack<Vec<u8>>> {
+//     let mut buffer = Vec::new();
+//     let mut stream = data.open(5.mebibytes());
+//     stream.read_to_end(&mut buffer).await?;
+    
+//     let object_id  = match ObjectId::parse_str(&user_id) {
+//         Ok(oid) => oid,
+//         Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
+//     };
+
+//     let filter = mongodb::bson::doc! {"user": object_id};
     
 
-    let (  signer_private_key, recipient_public) = generate_key_pair().expect("Key pair generation failed");
-    match encrypt_bytes(&buffer, &signer_private_key, &recipient_public) {
-        Ok((encrypted_data)) => Ok(RawMsgPack(encrypted_data)),
-        Err(e) => Err(e)
-    }
+//     match db.find_one(filter, None).await {
+//         Ok(Some(keypair)) => {
+//             let key_hex_from_db = keypair.secret_key;
+//             let key_bytes = hex::decode(key_hex_from_db).unwrap();
+//             let key = orion::hazardous::aead::xchacha20poly1305::SecretKey::from_slice(&key_bytes).unwrap();
+//             let encrypted_data = encrypt_core(
+//                 buffer,
+//                 &buffer,
+//                 &key,
+//                 Nonce::generate()
+//             )
+//                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+//             Ok(RawMsgPack(encrypted_data))
+//         },
+//         Ok(None) => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Keypair not found")),
+//         Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+//     }
+// }
 
-}
 
 
 #[post("/decrypt", data = "<data>")]
@@ -228,6 +272,7 @@ pub async fn decrypt_endpoint(data: Data<'_>) -> Result<RawMsgPack<Vec<u8>>, io:
     let mut buffer = Vec::new();
     let mut stream = data.open(10.megabytes()); // Adjust size limit as needed
     stream.read_to_end(&mut buffer).await?;
+    
 
     // You must get or derive this securely. Here, we assume it's available.
     let (recipient_secret, _) = generate_key_pair().expect("key generation failed"); // Replace with real logic

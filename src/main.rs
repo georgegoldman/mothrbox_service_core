@@ -4,7 +4,7 @@ use std::path::Path;
 use dotenv::dotenv;
 use std::env;
 
-use mothrbox::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file };
+use mothrbox::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file, encrypt_large_file };
 // use route::post_video;
 
 
@@ -15,6 +15,8 @@ mod endpoints;
 mod db;
 mod dto;
 mod middleware;
+mod sui_core;
+mod walrus_core;
 
 use rocket_cors::{AllowedOrigins, CorsOptions};
 fn _test_encrytion()
@@ -70,12 +72,14 @@ async fn rocket() -> _ {
      .manage(token_collection)
      .manage(keypair_collection)
      .mount("/engine/core", routes![
-          endpoints::upload_file,
+          // endpoints::upload_file,
           endpoints::decrypt_endpoint,
           endpoints::keypair,
           endpoints::create_keypair,
           endpoints::issue_token,
           endpoints::get_all_keypair,
+          endpoints::walrus_test,
+          endpoints::sui_test
           ])
      
 }

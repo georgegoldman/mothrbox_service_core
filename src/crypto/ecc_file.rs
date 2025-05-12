@@ -3,21 +3,23 @@ use std::fs;
 use std::path::Path;
 use aes::Aes256;
 use p256::{
-    ecdh::{EphemeralSecret, SharedSecret}, NistP256, PublicKey
+    ecdh::{EphemeralSecret, SharedSecret}, NistP256, PublicKey, SecretKey
 };
 use aes_gcm::{
     aead::{Aead, KeyInit, generic_array::GenericArray},
     Aes256Gcm, Nonce,
 };
 use rand::{RngCore, rngs::OsRng};
+use rayon::string;
 
 
 
 // Function to generate the ephemeral key pair
 pub fn generate_key_pair() -> std::result::Result<(EphemeralSecret, PublicKey), std::io::Error> {
     let mut rng = OsRng;
+    // let secret = EphemeralSecret::random(&mut rng);
     let secret = EphemeralSecret::random(&mut rng);
-    let public = PublicKey::from(&secret);
+    let public = secret.public_key();
     Ok((secret, public))
 }
 
@@ -81,6 +83,7 @@ pub fn encrypt_bytes(
 ) -> Result<Vec<u8>, std::io::Error> {
     let mut rng = OsRng;
     // let (ephemeral_secret, ephemeral_public) = generate_key_pair()?;
+    
     let share_secret = generate_shared_secret(&sender_key, recipient_public)?;
     let shared_secret_bytes = share_secret.raw_secret_bytes();
     let aes_key = GenericArray::from_slice(&shared_secret_bytes[..32]);
@@ -118,6 +121,8 @@ pub fn decrypt_bytes(
         eprintln!("Invalid ephemeral public key {:?}", e);
         std::io::Error::new(std::io::ErrorKind::Other, "Invalid Ephemeral public key")
     })?;
+
+    
     let shared_secret = recipient_secret.diffie_hellman(&ephemeral_public);
     let shared_secret_bytes = shared_secret.raw_secret_bytes();
 
@@ -171,4 +176,17 @@ pub fn decrypt_file(
     })?;
 
     Ok(())
+}
+
+pub fn encrypt_large_file(
+    file: &[u8],
+    secret_key: String,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let key = orion::aead::SecretKey::from_slice(secret_key.as_bytes())
+        .map_err(|e| format!("Failed to create secret key: {:?}", e))?;
+
+    let cipher_text = orion::aead::seal(&key, file)
+        .map_err(|e| format!("Encryption failed: {:?}", e))?;
+
+    Ok(cipher_text)
 }

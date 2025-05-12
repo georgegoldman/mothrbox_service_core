@@ -49,3 +49,5 @@ rocket_db_pools = { version = "0.2.0", features = ["mongodb"] }
 # sui
 sui_sdk = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.47.1", package = "sui-sdk" }
 move-core-types = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.47.1", package = "move-core-types" }
+orion = "0.17.10"
+k256 = "0.13.4"
