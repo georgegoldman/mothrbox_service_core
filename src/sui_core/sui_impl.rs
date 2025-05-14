@@ -13,7 +13,7 @@ impl SuiCli {
         cmd.arg("client")
         .arg("active-address")
         .arg("--json");
-        
+            
         let output = cmd.output().expect(" the program crashed");
 
         if output.status.success() {
