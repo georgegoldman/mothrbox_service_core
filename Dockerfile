@@ -9,5 +9,5 @@ RUN cargo build --release
 FROM debian:bookworm-slim AS runner
  
 WORKDIR /app
-COPY --from=builder /app/target/release/example-rust /app/example-rust
+COPY --from=builder /app/mothrbox_service_core/release/mothrbox_service_core /app/mothrbox_service_core
 CMD ["/app/example-rust"]
