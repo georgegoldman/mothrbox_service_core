@@ -7,8 +7,8 @@ use generic_array::GenericArray;
 use mongodb::bson::doc;
 use mongodb::bson::oid::{self, ObjectId};
 use mongodb::{results, Collection};
-use mothrbox::crypto::ecc_file::{decrypt_bytes, encrypt_bytes, encrypt_file, encrypt_large_file, generate_key_pair, generate_shared_secret};
-use mothrbox::crypto::orion_encryption::{create_key, nonce};
+use crate::crypto::ecc_file::{decrypt_bytes, encrypt_bytes, encrypt_file, encrypt_large_file, generate_key_pair, generate_shared_secret};
+use crate::crypto::orion_encryption::{create_key, nonce};
 use orion::aead::streaming::Nonce;
 use orion::hazardous::aead::xchacha20poly1305;
 use p256::elliptic_curve::ff::derive::bitvec::view::AsBits;
@@ -44,6 +44,54 @@ use std::fmt;
 
 
 type Aes256Ctr = Ctr128BE<Aes256>;
+
+#[post("/spawn/<username>")]
+pub async fn spawn_user(username: &str) -> &'static str {
+    let client = kube::Client::try_default().await.unwrap();
+    let pods: kube::Api<k8s_openapi::api::core::v1::Pod> = kube::Api::default_namespaced(client.clone());
+    let pvcs: kube::Api<k8s_openapi::api::core::v1::PersistentVolumeClaim> = kube::Api::default_namespaced(client);
+
+    let pvc_name = format!("pvc-{}", username);
+    let pod_name = format!("user-{}", username);
+
+    let pvc = serde_json::from_value(serde_json::json!({
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": { "name": pvc_name },
+        "spec": {
+            "accessModes": ["ReadWriteOnce"],
+            "resources": { "requests": { "storage": "1Gi" } },
+            "storageClassName": "azurefile"
+        }
+    })).unwrap();
+
+    let pod = serde_json::from_value(serde_json::json!({
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": { "name": pod_name },
+        "spec": {
+            "containers": [{
+                "name": "cli-container",
+                "image": "yourdockerhub/cli-service:latest",
+                "args": ["while", "true", ";", "do", "sleep", "30", ";", "done;"],
+                "volumeMounts": [{
+                    "name": "user-data",
+                    "mountPath": "/data"
+                }]
+            }],
+            "volumes": [{
+                "name": "user-data",
+                "persistentVolumeClaim": {
+                    "claimName": pvc_name
+                }
+            }]
+        }
+    })).unwrap();
+
+    let _ = pvcs.create(&Default::default(), &pvc).await;
+    let _ = pods.create(&Default::default(), &pod).await;
+    "User environment spawned"
+}
 
 #[get("/walrus_test")]
 pub fn walrus_test() -> Result<String, rocket::response::status::Custom<String>> {
@@ -227,43 +275,43 @@ rocket::response::status::Custom<Json<String>>
 
 
 
-// #[post("/encrypt_file/<user_id>", data =  "<data>")]
-// pub async fn upload_file( 
-//     data: Data<'_>,
-//     _client: AuthenticatedClient,
-//     user_id: &str,
-//     db: &State<Collection<KeyPair>>
-// ) -> std::io::Result<RawMsgPack<Vec<u8>>> {
-//     let mut buffer = Vec::new();
-//     let mut stream = data.open(5.mebibytes());
-//     stream.read_to_end(&mut buffer).await?;
+#[post("/encrypt_file/<user_id>", data =  "<data>")]
+pub async fn upload_file( 
+    data: Data<'_>,
+    // _client: AuthenticatedClient,
+    user_id: &str,
+    db: &State<Collection<KeyPair>>
+) -> std::io::Result<RawMsgPack<Vec<u8>>> {
+    let mut buffer = Vec::new();
+    let mut stream = data.open(5.mebibytes());
+    stream.read_to_end(&mut buffer).await?;
     
-//     let object_id  = match ObjectId::parse_str(&user_id) {
-//         Ok(oid) => oid,
-//         Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
-//     };
+    let object_id  = match ObjectId::parse_str(&user_id) {
+        Ok(oid) => oid,
+        Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
+    };
 
-//     let filter = mongodb::bson::doc! {"user": object_id};
+    let filter = mongodb::bson::doc! {"user": object_id};
     
-
-//     match db.find_one(filter, None).await {
-//         Ok(Some(keypair)) => {
-//             let key_hex_from_db = keypair.secret_key;
-//             let key_bytes = hex::decode(key_hex_from_db).unwrap();
-//             let key = orion::hazardous::aead::xchacha20poly1305::SecretKey::from_slice(&key_bytes).unwrap();
-//             let encrypted_data = encrypt_core(
-//                 buffer,
-//                 &buffer,
-//                 &key,
-//                 Nonce::generate()
-//             )
-//                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-//             Ok(RawMsgPack(encrypted_data))
-//         },
-//         Ok(None) => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Keypair not found")),
-//         Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-//     }
-// }
+    return Ok(RawMsgPack(buffer))
+    // match db.find_one(filter, None).await {
+    //     Ok(Some(keypair)) => {
+    //         let key_hex_from_db = keypair.secret_key;
+    //         let key_bytes = hex::decode(key_hex_from_db).unwrap();
+    //         let key = orion::hazardous::aead::xchacha20poly1305::SecretKey::from_slice(&key_bytes).unwrap();
+    //         let encrypted_data = encrypt_core(
+    //             buffer.clone(),
+    //             &buffer,
+    //             &key,
+    //             Nonce::generate()
+    //         )
+    //             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    //         Ok(RawMsgPack(encrypted_data))
+    //     },
+    //     Ok(None) => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Keypair not found")),
+    //     Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+    // }
+}
 
 
 

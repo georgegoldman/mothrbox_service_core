@@ -4,7 +4,7 @@ use std::path::Path;
 use dotenv::dotenv;
 use std::env;
 
-use mothrbox::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file, encrypt_large_file };
+use crate::crypto::ecc_file::{ generate_key_pair, encrypt_file, decrypt_file, encrypt_large_file };
 // use route::post_video;
 use std::process::Command;
 
@@ -79,14 +79,15 @@ async fn rocket() -> _ {
      .manage(token_collection)
      .manage(keypair_collection)
      .mount("/engine/core", routes![
-          // endpoints::upload_file,
+          endpoints::upload_file,
           endpoints::decrypt_endpoint,
           endpoints::keypair,
           endpoints::create_keypair,
           endpoints::issue_token,
           endpoints::get_all_keypair,
           endpoints::walrus_test,
-          endpoints::sui_test
+          endpoints::sui_test,
+          endpoints::spawn_user,
           ])
      
 }

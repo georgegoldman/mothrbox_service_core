@@ -42,7 +42,7 @@ pub fn encrypt_core<W: Write>(
     contents: &[u8],
     key: &SecretKey,
     nonce: Nonce
-) -> IoResult<()> {
+) -> IoResult<Vec<u8>> {
     let ad = auth_tag();
     let output_len = contents.len()
     .checked_add(POLY1305_OUTSIZE + ad.len())
@@ -55,5 +55,5 @@ pub fn encrypt_core<W: Write>(
 
     dist.write_all(&output)?;
 
-    Ok(())
+    Ok(output)
 }
