@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Ok, Result};
-use bson::{doc, DateTime as BsonDateTime};
+use anyhow::{Result, anyhow};
+use mongodb::bson::{doc, DateTime as BsonDateTime};
 use chrono::{DateTime, Utc};
 use mongodb::{Client, Collection, Database};
 use p256::{
-    ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey}, elliptic_curve::Curve, pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePrivateKey, EncodePublicKey}
+    ecdsa::{SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey, Signature as P256Signature},
+    pkcs8::{EncodePrivateKey, DecodePrivateKey, EncodePublicKey, DecodePublicKey},
 };
 use p384::{
     ecdsa::{SigningKey as P384SigningKey, VerifyingKey as P384VerifyingKey, Signature as P384Signature},
@@ -13,10 +14,10 @@ use p384::{
 use rand_core::OsRng;
 use rocket::{State, get, post, delete, routes, launch, serde::json::Json};
 use serde::{Deserialize, Serialize};
-use sui_sdk::types::signature;
 use std::fmt;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CurveType {
     #[serde(rename = "P-256")]
     P256,
@@ -106,6 +107,7 @@ impl<T> ApiResponse<T> {
     }
 }
 
+
 pub enum EccKeyPair {
     P256 {
         private_key: P256SigningKey,
@@ -129,7 +131,7 @@ impl EccKeyPair {
         match self {
             EccKeyPair::P256 { private_key, .. } => {
                 use p256::ecdsa::signature::Signer;
-                let signature: P384Signature = private_key.sign(message);
+                let signature: P256Signature = private_key.sign(message);
                 Ok(signature.to_bytes().to_vec())
             }
             EccKeyPair::P384 { private_key, .. } => {
@@ -142,7 +144,7 @@ impl EccKeyPair {
 
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<bool> {
         match self {
-            EccKeyPair::P256 { private_key, .. } => {
+            EccKeyPair::P256 { public_key, .. } => {
                 use p256::ecdsa::signature::Verifier;
                 let sig = P256Signature::try_from(signature)
                     .map_err(|e| anyhow!("Invalid P256 signature: {}", e))?;
@@ -151,7 +153,7 @@ impl EccKeyPair {
             EccKeyPair::P384 { public_key, .. } => {
                 use p384::ecdsa::signature::Verifier;
                 let sig = P384Signature::try_from(signature)
-                .map_err(|e| anyhow!("Invalid P384 signature: {}", e))?;
+                    .map_err(|e| anyhow!("Invalid P384 signature: {}", e))?;
                 Ok(public_key.verify(message, &sig).is_ok())
             }
         }
@@ -161,8 +163,8 @@ impl EccKeyPair {
         match self {
             EccKeyPair::P256 { private_key, .. } => {
                 private_key.to_pkcs8_pem(p256::pkcs8::LineEnding::LF)
-                .map(|s| s.to_string())
-                .map_err(|e| anyhow!("Failed to encode P256 private key: {}", e))
+                    .map(|s| s.to_string())
+                    .map_err(|e| anyhow!("Failed to encode P256 private key: {}", e))
             }
             EccKeyPair::P384 { private_key, .. } => {
                 private_key.to_pkcs8_pem(p384::pkcs8::LineEnding::LF)
@@ -186,26 +188,15 @@ impl EccKeyPair {
     }
 }
 
+
 pub struct EccKeyManager {
     collection: Collection<KeyPairDocument>,
 }
 
 impl EccKeyManager {
-    pub async fn new(database: &Database) -> Self {
-        let collection = database.collection::<KeyPairDocument>("ecc_keys");
-        
-        // Create indexes for better performance
-        let _ = collection
-            .create_index(doc! {"key_id": 1}, None)
-            .await;
-        let _ = collection
-            .create_index(doc! {"created_at": -1}, None)
-            .await;
-        let _ = collection
-            .create_index(doc! {"is_active": 1}, None)
-            .await;
 
-        Self { collection }
+    pub fn from_collection(collection: Collection<KeyPairDocument>) -> Self {
+        EccKeyManager { collection }
     }
 
     pub fn generate_key_pair(curve_type: CurveType) -> Result<EccKeyPair> {
@@ -327,5 +318,4 @@ impl EccKeyManager {
         let count = self.collection.count_documents(filter, None).await?;
         Ok(count > 0)
     }
-
 }

@@ -7,8 +7,10 @@ use generic_array::GenericArray;
 use mongodb::bson::doc;
 use mongodb::bson::oid::{self, ObjectId};
 use mongodb::{results, Collection};
+use mothrbox_service_core::crypto::new_encryption::KeyPairDocument;
 use crate::crypto::ecc_file::{decrypt_bytes, encrypt_bytes, encrypt_file, encrypt_large_file, generate_key_pair, generate_shared_secret};
-use crate::crypto::orion_encryption::{create_key, nonce};
+use crate::crypto::new_encryption::{ApiResponse, CreateKeyRequest, EccKeyManager, KeyListResponse, SignRequest, VerifyRequest};
+use crate::crypto::orion_encryption::{ nonce};
 use orion::aead::streaming::Nonce;
 use orion::hazardous::aead::xchacha20poly1305;
 use p256::elliptic_curve::ff::derive::bitvec::view::AsBits;
@@ -123,13 +125,131 @@ pub fn sui_test() -> Result<String, rocket::response::status::Custom<String>> {
     }
 }
 
-
-#[get("/<id>")]
-pub async fn retrieve(id: PasteId<'_>) -> Option<File> {
-    File::open(id.file_path()).await.ok()
+#[post("/keys", data = "<request>")]
+pub async fn create_key(
+    key_manager: &State<EccKeyManager>,
+    request: Json<CreateKeyRequest>,
+) -> Json<ApiResponse<String>> {
+    match key_manager.save_key_pair(
+        &request.key_id,
+        request.curve_type.clone(),
+        request.description.clone(),
+    ).await {
+        Ok(id) => Json(ApiResponse::success(id)),
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
 }
 
 
+#[get("/keys")]
+pub async fn list_keys(
+    key_manager: &State<EccKeyManager>,
+) -> Json<ApiResponse<KeyListResponse>> {
+    match key_manager.list_keys().await {
+        Ok(keys) => {
+            let total = keys.len();
+            Json(ApiResponse::success(KeyListResponse { keys, total }))
+        }
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
+}
+
+
+#[get("/keys/<key_id>/exists")]
+pub async fn key_exists(
+    key_manager: &State<EccKeyManager>,
+    key_id: &str,
+) -> Json<ApiResponse<bool>> {
+    match key_manager.key_exists(key_id).await {
+        Ok(exists) => Json(ApiResponse::success(exists)),
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
+}
+
+#[post("/keys/sign", data = "<request>")]
+pub async fn sign_message(
+    key_manager: &State<EccKeyManager>,
+    request: Json<SignRequest>,
+) -> Json<ApiResponse<String>> {
+    // Decode base64 message
+    let message = match base64::decode(&request.message) {
+        Ok(msg) => msg,
+        Err(e) => return Json(ApiResponse::error(format!("Invalid base64 message: {}", e))),
+    };
+
+    // Load key pair
+    let key_pair = match key_manager.load_key_pair(&request.key_id).await {
+        Ok(Some(kp)) => kp,
+        Ok(None) => return Json(ApiResponse::error("Key not found".to_string())),
+        Err(e) => return Json(ApiResponse::error(e.to_string())),
+    };
+
+    // Sign message
+    match key_pair.sign(&message) {
+        Ok(signature) => {
+            let signature_b64 = base64::encode(&signature);
+            Json(ApiResponse::success(signature_b64))
+        }
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
+}
+
+#[post("/keys/verify", data = "<request>")]
+pub async fn verify_signature(
+    key_manager: &State<EccKeyManager>,
+    request: Json<VerifyRequest>,
+) -> Json<ApiResponse<bool>> {
+    // Decode base64 inputs
+    let message = match base64::decode(&request.message) {
+        Ok(msg) => msg,
+        Err(e) => return Json(ApiResponse::error(format!("Invalid base64 message: {}", e))),
+    };
+
+    let signature = match base64::decode(&request.signature) {
+        Ok(sig) => sig,
+        Err(e) => return Json(ApiResponse::error(format!("Invalid base64 signature: {}", e))),
+    };
+
+    // Load key pair
+    let key_pair = match key_manager.load_key_pair(&request.key_id).await {
+        Ok(Some(kp)) => kp,
+        Ok(None) => return Json(ApiResponse::error("Key not found".to_string())),
+        Err(e) => return Json(ApiResponse::error(e.to_string())),
+    };
+
+    // Verify signature
+    match key_pair.verify(&message, &signature) {
+        Ok(is_valid) => Json(ApiResponse::success(is_valid)),
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
+}
+
+#[delete("/keys/<key_id>")]
+pub async fn delete_key(
+    key_manager: &State<EccKeyManager>,
+    key_id: &str,
+) -> Json<ApiResponse<bool>> {
+    match key_manager.delete_key_pair(key_id).await {
+        Ok(deleted) => Json(ApiResponse::success(deleted)),
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
+}
+
+#[post("/keys/<key_id>/deactivate")]
+pub async fn deactivate_key(
+    key_manager: &State<EccKeyManager>,
+    key_id: &str,
+) -> Json<ApiResponse<bool>> {
+    match key_manager.deactivate_key_pair(key_id).await {
+        Ok(deactivated) => Json(ApiResponse::success(deactivated)),
+        Err(e) => Json(ApiResponse::error(e.to_string())),
+    }
+}
+
+#[get("/health")]
+pub fn health_check() -> Json<ApiResponse<String>> {
+    Json(ApiResponse::success("ECC Key Service is healthy".to_string()))
+}
 
 
 
@@ -150,53 +270,7 @@ pub async fn retrieve(id: PasteId<'_>) -> Option<File> {
 //     pub public_key: Key,
 // }
 
-#[get("/keypair/<key_pair_id>")]
-pub async fn keypair(
-    key_pair_id: &str,
-    db: &State<Collection<KeyPair>>,
-    _client: AuthenticatedClient
-) ->
- Result<Json<KeyPair>, Status> 
-{
-    
 
-    let object_id  = match ObjectId::parse_str(&key_pair_id) {
-        Ok(oid) => oid,
-        Err(_) => return  Err(Status::BadRequest),
-    };
-
-    let filter = mongodb::bson::doc! {"_id": object_id};
-    let result = db.find_one(filter, None).await;
-    eprintln!("logging...{:?}", result);
-    match result {
-        Ok(fetched_data) => {
-            if let Some(data) = fetched_data {
-                Ok(Json(data))
-            } else {
-                Err(Status::NotFound)
-            }
-        }
-        Err(_) => Err(Status::InternalServerError)
-    }
-
-}
-
-#[get("/keypair")]
-pub async  fn get_all_keypair(
-    db: &State<Collection<KeyPair>>,
-    _client: AuthenticatedClient
-) -> 
-Json<Vec<KeyPair>> {
-    let mut cursor: mongodb::Cursor<KeyPair> = db
-    .find(doc! {}, None)
-    .await
-    .expect("Failed to get key pairs");
-    let mut keypairs: Vec<KeyPair> = Vec::new();
-    while let Some(key_pair) = cursor.try_next().await.expect("Error iteracting cursor") {
-        keypairs.push(key_pair);
-    }
-    Json(keypairs)
-}
 
 #[post("/issue-token", data = "<wallet_address>")]
 pub async fn issue_token(
@@ -223,114 +297,4 @@ pub async fn issue_token(
     Ok(token)
 }
 
-#[post("/generate-keypairs", data="<key_data>")]
-pub async fn create_keypair(
-    db: &State<Collection<KeyPair>>,
-    key_data: Json<GenerateKeypairRequest>
-) -> 
-rocket::response::status::Custom<Json<String>>
-{
-    let nonce = nonce();
-    let secret_key = create_key(key_data.password.clone(), nonce);
-    let key_bytes = secret_key.unprotected_as_bytes();
-    let key_hex = hex::encode(key_bytes);
-
-    // key to base64
-    // let shared_secret: p256::elliptic_curve::ecdh::SharedSecret<NistP256> = private_key.diffie_hellman(&public_key);
-    // let private_bytes = shared_secret.raw_secret_bytes(); // [u8, 32]
-    // let public_bytes = public_key.to_sec1_bytes();
-
-    
-    // let private_b64 = general_purpose::STANDARD.encode(private_bytes);
-    // let public_b64 = general_purpose::STANDARD.encode(&public_bytes);
-    let now  = mongodb::bson::DateTime::from_chrono(Utc::now());
-    let user_object_id  = match ObjectId::parse_str(&key_data.user) {
-        Ok(oid) => oid,
-        Err(_) => return  rocket::response::status::Custom(
-            Status::InternalServerError,
-            Json("user object id convertion failed".to_string())
-        ),
-    };
-    let new_keypair = KeyPair {
-        id: None,
-        user: user_object_id,
-        algorithm: Some(key_data.algorithm.clone()),
-        is_active: true,
-        secret_key: key_hex,
-        created_at: Some(now),
-        updated_at: Some(now),
-    };
-
-    match db.insert_one(new_keypair, None).await {
-        Ok(_) => rocket::response::status::Custom(
-            Status::Created,
-            Json("Key pairs create successfully".to_string(),)
-        ),
-        Err(_) => rocket::response::status::Custom(
-            Status::InternalServerError,
-            Json("Failed to create key pairs".to_string())
-        )
-    }
-}
-
-
-
-#[post("/encrypt_file/<user_id>", data =  "<data>")]
-pub async fn upload_file( 
-    data: Data<'_>,
-    // _client: AuthenticatedClient,
-    user_id: &str,
-    db: &State<Collection<KeyPair>>
-) -> std::io::Result<RawMsgPack<Vec<u8>>> {
-    let mut buffer = Vec::new();
-    let mut stream = data.open(5.mebibytes());
-    stream.read_to_end(&mut buffer).await?;
-    
-    let object_id  = match ObjectId::parse_str(&user_id) {
-        Ok(oid) => oid,
-        Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
-    };
-
-    let filter = mongodb::bson::doc! {"user": object_id};
-    
-    return Ok(RawMsgPack(buffer))
-    // match db.find_one(filter, None).await {
-    //     Ok(Some(keypair)) => {
-    //         let key_hex_from_db = keypair.secret_key;
-    //         let key_bytes = hex::decode(key_hex_from_db).unwrap();
-    //         let key = orion::hazardous::aead::xchacha20poly1305::SecretKey::from_slice(&key_bytes).unwrap();
-    //         let encrypted_data = encrypt_core(
-    //             buffer.clone(),
-    //             &buffer,
-    //             &key,
-    //             Nonce::generate()
-    //         )
-    //             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    //         Ok(RawMsgPack(encrypted_data))
-    //     },
-    //     Ok(None) => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Keypair not found")),
-    //     Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-    // }
-}
-
-
-
-#[post("/decrypt", data = "<data>")]
-pub async fn decrypt_endpoint(data: Data<'_>) -> Result<RawMsgPack<Vec<u8>>, io::Error> {
-    let mut buffer = Vec::new();
-    let mut stream = data.open(10.megabytes()); // Adjust size limit as needed
-    stream.read_to_end(&mut buffer).await?;
-    
-
-    // You must get or derive this securely. Here, we assume it's available.
-    let (recipient_secret, _) = generate_key_pair().expect("key generation failed"); // Replace with real logic
-
-    match decrypt_bytes(&buffer, &recipient_secret) {
-        Ok(plaintext) => Ok(RawMsgPack(plaintext)),
-        Err(e) => {
-            eprintln!("Decryption error: {:?}", e);
-            Err(io::Error::new(io::ErrorKind::Other, "Decryption failed"))
-        }
-    }
-}
 
