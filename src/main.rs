@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 use std::path::Path;
+use crypto::new_encryption;
 use dotenv::dotenv;
 use std::env;
 
@@ -59,7 +60,11 @@ async fn rocket() -> _ {
 
      // connect the different database collections
      let token_collection = db::connect::<models::ApiToken>().await;
-     let keypair_collection = db::connect::<models::KeyPair>().await;
+     let keypair_collection = db::connect::<new_encryption::KeyPairDocument>().await;
+
+     // Create your EccKeyManager from the keypair_collection
+    let key_manager = new_encryption::EccKeyManager::from_collection(keypair_collection);
+     
 
      let port  = env::var("PORT")
           .unwrap_or_else(|_| "7000".to_string())
@@ -77,17 +82,16 @@ async fn rocket() -> _ {
      })
      .attach(cors)
      .manage(token_collection)
-     .manage(keypair_collection)
+     .manage(key_manager)
      .mount("/engine/core", routes![
-          endpoints::upload_file,
-          endpoints::decrypt_endpoint,
-          endpoints::keypair,
-          endpoints::create_keypair,
           endpoints::issue_token,
-          endpoints::get_all_keypair,
           endpoints::walrus_test,
           endpoints::sui_test,
           endpoints::spawn_user,
+          endpoints::create_key,
+          endpoints::key_exists,
+          endpoints::sign_message,
+          endpoints::verify_signature,
           ])
      
 }
