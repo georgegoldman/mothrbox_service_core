@@ -1,7 +1,7 @@
 use mongodb::{bson::doc, Collection};
 use rocket::{ http::Status, outcome::Outcome, request::FromRequest, Request};
 
-use crate::models::api_token::{self, ApiToken};
+use crate::model_core::api_token::{self, ApiToken};
 
 pub struct AuthenticatedClient(pub ApiToken);
 

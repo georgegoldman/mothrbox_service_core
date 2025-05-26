@@ -14,12 +14,14 @@ pub struct KeyPair {
     pub id: Option<ObjectId>,
 
     #[serde(rename = "user")]
-    pub user: ObjectId, // Reference to User document
+    pub owner: ObjectId, // Reference to User document
 
     // #[serde(skip_serializing_if = "Option::is_none")]
     pub r#algorithm: Option<Algorithm>, // Optional enum field
 
-    pub secret_key: String,
+    pub alias: String,
+
+    pub value: Vec<u8>,
 
     #[serde(default = "default_is_active")]
     pub is_active: bool,
