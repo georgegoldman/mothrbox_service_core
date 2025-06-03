@@ -1,4 +1,5 @@
 pub mod index;
+pub mod walrus_opereation;
 pub use index::{
     issue_token,
     walrus_test,
@@ -9,3 +10,5 @@ pub use index::{
     // sign_message,
     // verify_signature,
 };
+
+pub use walrus_opereation::WalrusOp;

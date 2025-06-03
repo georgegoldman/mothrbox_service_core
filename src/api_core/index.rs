@@ -76,12 +76,13 @@ pub async fn encrypt(
     alias: &str,
     db: &State<Collection<KeyPair>>
 )
- -> std::io::Result<RawMsgPack<Vec<u8>>> 
+ -> Option<serde_json::Value> 
 {
     let encrypt_service = piston::EcryptionService{};
-    let encrypt_data = encrypt_service.encrypt(db, alias, user_id, data).await;
+    let owner = "".to_string();
+    let encrypt_data = encrypt_service.encrypt(db, alias, user_id, owner.to_string(), data).await;
     
-    return Ok(RawMsgPack(encrypt_data))
+    return encrypt_data
 }
 
 #[post("/decrypt/<user_id>/<alias>", data="<data>")]
