@@ -9,6 +9,7 @@ use mongodb::bson::doc;
 use mongodb::bson::oid::{self, ObjectId};
 use mongodb::{results, Collection};
 use mothrbox_service_core::encryption_core::blocks::CipherBlock;
+use openssl::derive;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
@@ -68,9 +69,15 @@ pub async fn create_key(
     res
 }
 
-#[post("/encrypt/<user_id>/<alias>", data="<data>")]
+#[derive(rocket::form::FromForm)]
+struct EncryptForm<'r>{
+    owner: String,
+    file: rocket::fs::TempFile<'r>
+}
+
+#[post("/encrypt/<user_id>/<alias>", data="<form>")]
 pub async fn encrypt(
-    data: Data<'_>,
+    form: rocket::form::Form<EncryptForm<'_>>,
     // authenticate user
     user_id: &str,
     alias: &str,
@@ -79,23 +86,34 @@ pub async fn encrypt(
  -> Option<serde_json::Value> 
 {
     let encrypt_service = piston::EcryptionService{};
-    let owner = "".to_string();
-    let encrypt_data = encrypt_service.encrypt(db, alias, user_id, owner.to_string(), data).await;
+    let owner = form.owner.clone(); // extract the address
+
+    // convert TempFile to Data<'_> or Vec<u8>
+    let file_data = match form.file.open().await {
+        Ok(mut file) => {
+            let mut buffer = Vec::new();
+            file.read_to_end(&mut buffer).await.ok()?;
+            buffer
+        },
+        Err(_) => return None,
+    };
+    let encrypt_data = encrypt_service.encrypt(db, alias, user_id, owner.to_string(), file_data).await;
     
     return encrypt_data
 }
 
-#[post("/decrypt/<user_id>/<alias>", data="<data>")]
+#[get("/decrypt/<user_id>/<alias>/<blob_id>", /*data="<data>"*/)]
 pub async fn decrypt(
-    data: Data<'_>,
+    // data: Data<'_>,
     user_id: &str,
     alias: &str,
+    blob_id: &str,
     db: &State<Collection<KeyPair>>
 )
 -> std::io::Result<RawMsgPack<Vec<u8>>>
 {
     let encrypt_service = piston::EcryptionService{};
-    let decrypt_data = encrypt_service.decrypt(db, alias, user_id, data).await;
+    let decrypt_data = encrypt_service.fetch_and_decrypt(db, alias, user_id, blob_id).await;
 
     return Ok(RawMsgPack(decrypt_data))
 }

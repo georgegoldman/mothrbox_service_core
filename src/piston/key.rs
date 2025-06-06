@@ -1,4 +1,6 @@
 
+use std::fmt::format;
+
 use futures::stream;
 use mongodb::{bson::oid::{self, ObjectId}, Collection};
 use crate::encryption_core::openssl_ecc_key_gen::OpensslEccKeyGen;
@@ -72,11 +74,12 @@ impl EcryptionService {
         db: &State<Collection<KeyPair>>,
         alias: &str,
         user_id: &str,
-        data: rocket::Data<'_>
+        encrypted_data: Vec<u8>
+        // data: rocket::Data<'_>
     ) -> Vec<u8>{
-        let mut buffer = Vec::new();
-        let mut stream = data.open(5.megabytes());
-        stream.read_to_end(&mut buffer).await;
+        let mut buffer = encrypted_data;
+        // let mut stream = data.open(5.megabytes());
+        // stream.read_to_end(&mut buffer).await;
 
         let user = match ObjectId::parse_str(user_id.clone()) {
          Ok(oid) => oid,
@@ -106,19 +109,51 @@ impl EcryptionService {
 
     }
 
+    pub async fn fetch_and_decrypt(
+        &self,
+        db: &State<Collection<KeyPair>>,
+        alias: &str,
+        user_id: &str,
+        blob_id: &str
+    ) -> Vec<u8> {
+        // fetch the blob from walrus
+        let client = reqwest::Client::new();
+        let response = match client
+        .get(&format!("https://universal-dehlia-mothrbox-b59d2011.koyeb.app/read_blob_as_file/{}", blob_id))
+        .send()
+        .await
+         {
+            Ok(resp) => resp,
+            Err(e) => {
+                eprintln!("Failed to fetch blob: {}", e);
+                return b"failed to fetch blob".to_vec();
+            }
+        };
+
+        let encrypted_data = match response.bytes().await {
+            Ok(bytes) => bytes.to_vec(),
+            Err(e) => {
+                eprintln!("Failed to read response bytes: {}", e);
+                return b"ailed to read blob data".to_vec();
+            }
+        };
+
+        self.decrypt(db, alias, user_id, encrypted_data).await
+    }
+
     pub async fn encrypt(
         &self,
         db: &State<Collection<KeyPair>>,
         alias: &str,
         user_id: &str,
         owner: String,
-        data: rocket::Data<'_>
+        data: Vec<u8>
     ) -> Option<serde_json::Value>
     {
         // let _ = str;
-     let mut buffer = Vec::new();
-     let mut stream = data.open(5.megabytes());
-     stream.read_to_end(&mut buffer).await;
+     let mut buffer = data;
+    //  let mut stream = data.open(5.megabytes());
+    //  stream.read_to_end(&mut buffer).await;
 
      let user = match ObjectId::parse_str(user_id.clone()) {
          Ok(oid) => oid,
@@ -153,7 +188,9 @@ impl EcryptionService {
     .part("file", reqwest::multipart::Part::bytes(ciphertext)
     .file_name("encrypted_data.bin")
     .mime_str("application/octet-stream").unwrap())
-    .text("owner", owner);
+    .text("owner", owner.clone());
+
+    println!("{:?}", owner);
 
     let client = reqwest::Client::new();
     let response = match client
