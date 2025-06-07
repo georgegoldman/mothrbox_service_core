@@ -22,6 +22,11 @@ mod piston;
 
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
+#[catch(413)]
+fn too_large(_req: &rocket::Request<'_>) -> &'static str {
+     "File too large Max size is 3GB"
+}
+
 
 #[launch]
 async fn rocket() -> _ {
@@ -55,6 +60,7 @@ async fn rocket() -> _ {
           port,
           ..rocket::Config::default()
      })
+     .register("base", catchers![too_large])
      .attach(cors)
      .manage(token_collection)
      .manage(key_pair)
