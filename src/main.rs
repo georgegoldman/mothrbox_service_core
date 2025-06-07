@@ -60,7 +60,7 @@ async fn rocket() -> _ {
           port,
           ..rocket::Config::default()
      })
-     .register("base", catchers![too_large])
+     .register("/", catchers![too_large])
      .attach(cors)
      .manage(token_collection)
      .manage(key_pair)
