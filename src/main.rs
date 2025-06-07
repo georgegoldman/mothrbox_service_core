@@ -55,6 +55,12 @@ async fn rocket() -> _ {
      .to_cors()
      .unwrap();
 
+     let config = rocket::Config::figment();
+     let form_limit: u64 = config.extract_inner("limits.form").unwrap_or(0);
+     let file_limit: u64 = config.extract_inner("limits.file").unwrap_or(0);
+     println!("🚀 Form limit: {} bytes", form_limit);
+     println!("📁 File limit: {} bytes", file_limit);
+
      rocket::custom(rocket::Config {
           address: "0.0.0.0".parse().unwrap(),
           port,
